@@ -1,5 +1,7 @@
 import type { AbsenceRecord, MachineRecord, ManualCounters, SectorSnapshot, SetupRecord } from '../domain/types';
 
+export const REPORT_SEPARATOR = '━━━━━━━━━━━━━━━━━━━━━━━';
+
 const n = (value: number, pad = false) => (value === 0 ? 'N/A' : pad ? String(value).padStart(2, '0') : String(value));
 const list = (items: string[]) => (items.length ? items.join('\n') : 'N/A');
 const emoji = (severity: SetupRecord['severity']) => severity === 'red' ? '🔴 ' : severity === 'blue' ? '🔵 ' : severity === 'green' ? '🟢 ' : '';
@@ -16,4 +18,8 @@ export function generateFullReport(snapshot: SectorSnapshot, counters: ManualCou
 
 export function generateCompactReport(snapshot: SectorSnapshot): string {
   return `*${snapshot.currentShift}° TURNO*\n*SITUAÇÃO DO SETOR ⬇️⬇️⬇️*\n\n*MÁQUINAS EM MANUTENÇÃO PARADA*\n${list(snapshot.maintenanceStopped.map(machineLine))}\n\n*MÁQUINAS EM MANUTENÇÃO PRODUZINDO*\n${list(snapshot.maintenanceProducing.map(machineLine))}\n\n*SETUP*\n${list(snapshot.setups.map(setupLine))}\n\n*PRÓXIMOS SETUPS*\n${list(snapshot.upcomingSetups.map(setupLine))}\n\n*SETUPS ${snapshot.nextShift}°T*\n${list(snapshot.nextShiftSetups.map(setupLine))}\n\n*MAQUINAS EM AJUSTES*\n${list(snapshot.adjustments.map(machineLine))}\n\n*ORDENS PARA SELEÇÃO*\n${list(snapshot.selections.map((item) => item.tnl))}\n\n*BOM TRABALHO*`;
+}
+
+export function generateCombinedReport(snapshot: SectorSnapshot, counters: ManualCounters): string {
+  return `${generateFullReport(snapshot, counters)}\n\n${REPORT_SEPARATOR}\n\n${generateCompactReport(snapshot)}`;
 }
