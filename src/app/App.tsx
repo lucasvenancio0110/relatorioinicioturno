@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ManualCounters, SectorSnapshot, Shift } from '../domain/types';
 import { auditSnapshot } from '../engine/audit';
 import { parseSector } from '../engine/parser';
-import { generateCompactReport, generateFullReport } from '../engine/reports';
+import { generateCombinedReport, generateCompactReport, generateFullReport } from '../engine/reports';
 import { demoInput } from '../features/demo';
 
 const initialCounters: ManualCounters = {
@@ -29,6 +29,8 @@ const counterLabels: Array<[keyof ManualCounters, string]> = [
   ['selectionTnc', 'Seleção TNC'],
 ];
 
+type ReportMode = 'combined' | 'full' | 'compact';
+
 function Counter({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
   return (
     <div className="counter-card">
@@ -46,11 +48,16 @@ export default function App() {
   const [shift, setShift] = useState<Shift>(2);
   const [snapshot, setSnapshot] = useState<SectorSnapshot | null>(null);
   const [counters, setCounters] = useState<ManualCounters>(initialCounters);
-  const [reportMode, setReportMode] = useState<'full' | 'compact'>('full');
+  const [reportMode, setReportMode] = useState<ReportMode>('combined');
   const [copied, setCopied] = useState(false);
 
   const audit = useMemo(() => (snapshot ? auditSnapshot(snapshot) : null), [snapshot]);
-  const report = useMemo(() => !snapshot ? '' : reportMode === 'full' ? generateFullReport(snapshot, counters) : generateCompactReport(snapshot), [snapshot, counters, reportMode]);
+  const report = useMemo(() => {
+    if (!snapshot) return '';
+    if (reportMode === 'full') return generateFullReport(snapshot, counters);
+    if (reportMode === 'compact') return generateCompactReport(snapshot);
+    return generateCombinedReport(snapshot, counters);
+  }, [snapshot, counters, reportMode]);
 
   const analyze = () => raw.trim() && setSnapshot(parseSector(raw, shift));
   const copyReport = async () => {
@@ -125,7 +132,14 @@ export default function App() {
         </section>
 
         <section className="panel report-panel">
-          <div className="report-toolbar"><div><span className="step-index">05</span><h3>Relatório pronto</h3></div><div className="segmented"><button className={reportMode === 'full' ? 'active' : ''} onClick={() => setReportMode('full')}>Completo</button><button className={reportMode === 'compact' ? 'active' : ''} onClick={() => setReportMode('compact')}>Resumido</button></div></div>
+          <div className="report-toolbar">
+            <div><span className="step-index">05</span><h3>Relatório pronto</h3></div>
+            <div className="segmented">
+              <button className={reportMode === 'combined' ? 'active' : ''} onClick={() => setReportMode('combined')}>Ambos</button>
+              <button className={reportMode === 'full' ? 'active' : ''} onClick={() => setReportMode('full')}>Completo</button>
+              <button className={reportMode === 'compact' ? 'active' : ''} onClick={() => setReportMode('compact')}>Resumido</button>
+            </div>
+          </div>
           <pre>{report}</pre>
           <div className="report-footer"><span>{report.split('\n').length} linhas geradas</span><button className="primary-button" onClick={copyReport}>{copied ? 'Copiado ✓' : 'Copiar para WhatsApp'}</button></div>
         </section>
