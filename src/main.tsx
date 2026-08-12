@@ -4,6 +4,7 @@ import App from './app/App';
 import './styles/app.css';
 import './styles/report-editor.css';
 import './styles/block-editor-conflicts.css';
+import './styles/attention-decisions.css';
 import './styles/interaction.css';
 
 const preventGestureZoom = (event: Event) => event.preventDefault();
