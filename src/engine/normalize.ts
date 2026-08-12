@@ -74,6 +74,13 @@ export function extractTime(value: string): string | null {
 }
 
 export function cleanDescription(value: string): string {
+  const semantic = canonical(value);
+  if (/\b(?:MAQUINA\s+)?EM\s+SETUP\b/.test(semantic) || /\bSETUP\s+EM\s+ANDAMENTO\b/.test(semantic)) return 'Em Setup';
+  if (/\bAGUARDANDO\s+SETUP\b/.test(semantic)) return 'Aguardando setup';
+  if (/\bINICIAR(?:\s+SETUP)?\b/.test(semantic)) return 'Iniciar';
+  if (/\bINICIANDO\b/.test(semantic)) return 'Iniciando';
+  if (/\bINICIADO\b/.test(semantic)) return 'Iniciado';
+
   let cleaned = stripMarkup(value)
     .replace(/[🔴🔵🟢]/g, ' ')
     .replace(/TNL\s*0*\d{1,3}(?:\s*,\s*(?:TNL\s*)?0*\d{1,3})*/gi, ' ')
@@ -88,8 +95,6 @@ export function cleanDescription(value: string): string {
     .trim();
 
   if (!cleaned) return '';
-  if (/^em setup$/i.test(cleaned)) return 'Em Setup';
-  if (/^iniciar$/i.test(cleaned) || /^iniciar setup$/i.test(cleaned)) return 'Iniciar';
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
