@@ -45,11 +45,12 @@ function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onCha
   };
 
   const addLine = () => onChange({ ...block, lines: [...block.lines, createReportLine('', false)] });
+  const values = block.lines.slice(1).map((line) => line.text.trim().toUpperCase()).filter(Boolean);
+  const empty = !editing && values.length > 0 && values.every((value) => value === 'N/A');
 
   if (!editing) {
     return (
-      <article className="report-preview-block editable-report-block">
-        {linked && <span className="linked-block-badge" title="Este bloco é compartilhado entre Completo e Resumido">Vinculado</span>}
+      <article className={`report-preview-block editable-report-block${empty ? ' empty-report-block' : ''}`}>
         <button className="block-edit-trigger" type="button" onClick={onEdit} aria-label={`Editar bloco ${index + 1}`}>✎</button>
         {block.lines.map((line) => (
           <div className={line.bold ? 'report-preview-line heading' : 'report-preview-line'} key={line.id}>
@@ -65,7 +66,7 @@ function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onCha
       <div className="block-edit-toolbar">
         <div>
           <strong>Editar bloco {index + 1}</strong>
-          {linked && <small>Alterações neste bloco também atualizam a outra versão.</small>}
+          {linked && <small>Sincronizado com a outra versão.</small>}
         </div>
         <div>
           <button type="button" onClick={() => onMove(-1)} disabled={index === 0} aria-label="Mover bloco para cima">↑</button>
@@ -96,7 +97,7 @@ function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onCha
         ))}
       </div>
 
-      <button className="add-line-button" type="button" onClick={addLine}>+ Adicionar linha neste bloco</button>
+      <button className="add-line-button" type="button" onClick={addLine}>+ Adicionar linha</button>
     </article>
   );
 }
@@ -226,11 +227,6 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
 
   return (
     <div className="report-workspace">
-      <div className="report-sync-note">
-        <strong>Edição inteligente</strong>
-        <span>Blocos operacionais em comum ficam sincronizados entre Completo e Resumido.</span>
-      </div>
-
       <div className="report-tabs" role="tablist" aria-label="Versão do relatório">
         <button type="button" className={tab === 'full' ? 'active' : ''} onClick={() => selectTab('full')}>Completo</button>
         <button type="button" className={tab === 'compact' ? 'active' : ''} onClick={() => selectTab('compact')}>Resumido</button>
@@ -239,12 +235,12 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
       <div className="report-editor-toolbar block-editor-heading">
         <div className="report-version-state">
           <div>
-            <strong>Relatório {activeLabel.toLowerCase()}</strong>
-            <small>Toque no lápis de qualquer bloco para alterar o que será copiado.</small>
+            <strong>{activeLabel}</strong>
+            <small>O que você vê nos blocos é o que será copiado.</small>
           </div>
-          <span className={activeDirty ? 'edited-badge' : 'automatic-badge'}>{activeDirty ? 'Alterado nos blocos' : 'Sincronizado com o motor'}</span>
+          <span className={activeDirty ? 'edited-badge' : 'automatic-badge'}>{activeDirty ? 'Editado' : 'Automático'}</span>
         </div>
-        {activeDirty && <button type="button" className="ghost-button" onClick={restoreActive}>Restaurar esta versão</button>}
+        {activeDirty && <button type="button" className="ghost-button" onClick={restoreActive}>Restaurar</button>}
       </div>
 
       <div className="report-preview structured-report" aria-label={`Relatório ${activeLabel.toLowerCase()} editável por blocos`}>
@@ -264,7 +260,7 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
             />
           </div>
         ))}
-        <button className="add-block-button" type="button" onClick={addBlock}>+ Adicionar novo bloco somente nesta versão</button>
+        <button className="add-block-button" type="button" onClick={addBlock}>+ Adicionar bloco nesta versão</button>
       </div>
 
       <div className="report-meta-row">
@@ -274,7 +270,7 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
 
       <div className="report-copy-actions">
         <button className="primary-button" type="button" onClick={() => copyText('active')}>
-          {copied === 'active' ? 'Copiado ✓' : `Copiar ${activeLabel.toLowerCase()} como está`}
+          {copied === 'active' ? 'Copiado ✓' : `Copiar ${activeLabel.toLowerCase()}`}
         </button>
         <button className="secondary-button" type="button" onClick={() => copyText('both')}>
           {copied === 'both' ? 'Os dois copiados ✓' : 'Copiar completo + resumido'}
