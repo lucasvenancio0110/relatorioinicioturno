@@ -5,13 +5,14 @@ import type {
   OperationalAttention,
   SectorSnapshot,
   Shift,
-  SourceMessage,
 } from '../domain/types';
+import { applyAttentionDecision, type AttentionDecision } from '../engine/attentionResolution';
 import { auditSnapshot } from '../engine/audit';
 import { getConfirmationInstruction, getConflictContacts, getConflictQuestion } from '../engine/conflictGuidance';
 import { parseSector } from '../engine/parser';
 import { generateCompactReport, generateFullReport } from '../engine/reports';
 import { demoInput } from '../features/demo';
+import OperationalAttentionCard from './OperationalAttentionCard';
 import ReportEditor from './ReportEditor';
 
 const initialCounters: ManualCounters = {
@@ -81,19 +82,6 @@ function CounterRow({ label, value, onChange }: { label: string; value: number; 
   );
 }
 
-function sourceContacts(sourceIds: string[], messages: SourceMessage[]) {
-  const wanted = new Set(sourceIds);
-  return messages
-    .filter((message) => wanted.has(message.id))
-    .map((message) => ({
-      id: message.id,
-      sender: message.sender || 'Preparador não identificado',
-      line: message.line ? `Linha ${message.line}` : 'Linha não identificada',
-      timestamp: message.timestamp,
-    }))
-    .filter((contact, index, all) => all.findIndex((item) => item.sender === contact.sender && item.line === contact.line) === index);
-}
-
 function ConflictCard({ issue, snapshot }: { issue: AuditIssue; snapshot: SectorSnapshot }) {
   const [copied, setCopied] = useState(false);
   const contacts = getConflictContacts(issue, snapshot);
@@ -141,44 +129,6 @@ function ConflictCard({ issue, snapshot }: { issue: AuditIssue; snapshot: Sector
   );
 }
 
-function OperationalAttentionCard({ attention, snapshot }: { attention: OperationalAttention; snapshot: SectorSnapshot }) {
-  const contacts = sourceContacts(attention.sourceIds, snapshot.messages);
-  const label = attention.kind === 'valid-overlap' ? 'Sobreposição operacional' : 'Múltiplos contextos';
-
-  return (
-    <article className={`attention-card overlap ${attention.severity}`}>
-      <div className="attention-card-head">
-        <div>
-          <span className="attention-type">{label}</span>
-          <strong>{attention.tnl}</strong>
-        </div>
-        <span className="attention-status">{attention.severity === 'info' ? 'Acompanhar' : 'Observar'}</span>
-      </div>
-      <p>{attention.message}</p>
-
-      <div className="context-stack">
-        {attention.contexts.map((context) => (
-          <div className="context-row" key={context.key}>
-            <span>{context.label}</span>
-            <strong>{context.detail || 'Sem detalhe adicional'}</strong>
-          </div>
-        ))}
-      </div>
-
-      {contacts.length > 0 && (
-        <div className="attention-sources compact">
-          <span>Informado por</span>
-          <div>
-            {contacts.map((contact) => (
-              <small key={`${contact.id}-${contact.line}`}><strong>{contact.sender}</strong> · {contact.line}</small>
-            ))}
-          </div>
-        </div>
-      )}
-    </article>
-  );
-}
-
 export default function App() {
   const [raw, setRaw] = useState('');
   const [shift, setShift] = useState<Shift>(2);
@@ -189,6 +139,7 @@ export default function App() {
   const [inputExpanded, setInputExpanded] = useState(true);
   const [manualExpanded, setManualExpanded] = useState(false);
   const [analyzedRaw, setAnalyzedRaw] = useState('');
+  const [validatedAttentionIds, setValidatedAttentionIds] = useState<Set<string>>(() => new Set());
   const resultRef = useRef<HTMLElement | null>(null);
 
   const audit = useMemo(() => (snapshot ? auditSnapshot(snapshot) : null), [snapshot]);
@@ -197,11 +148,15 @@ export default function App() {
   const rawLineCount = raw.trim() ? raw.trim().split('\n').length : 0;
   const inputDirty = Boolean(snapshot && raw !== analyzedRaw);
   const filledCounters = Object.values(counters).filter((value) => value > 0).length;
+  const unresolvedAttentions = audit?.attentions.filter((attention) => !validatedAttentionIds.has(attention.id)) || [];
+  const resolvedAttentions = audit?.attentions.filter((attention) => validatedAttentionIds.has(attention.id)) || [];
+  const pendingAttentionCount = (audit?.issues.length || 0) + unresolvedAttentions.length;
 
   const analyzeForRoute = (currentShift: Shift, nextShift: Shift, shouldScroll = true) => {
     if (!raw.trim()) return;
     const parsed = parseSector(raw, currentShift, nextShift);
     setSnapshot(parsed);
+    setValidatedAttentionIds(new Set());
     setAnalyzedRaw(raw);
     setInputExpanded(false);
     setAnalysisVersion((version) => version + 1);
@@ -233,6 +188,7 @@ export default function App() {
     setAnalyzedRaw('');
     setSnapshot(null);
     setCounters(initialCounters);
+    setValidatedAttentionIds(new Set());
     setInputExpanded(true);
     setManualExpanded(false);
     setAnalysisVersion((version) => version + 1);
@@ -241,6 +197,28 @@ export default function App() {
   const handleRawChange = (value: string) => {
     setRaw(value);
     if (snapshot) setInputExpanded(true);
+  };
+
+  const validateAttention = (attentionId: string) => {
+    setValidatedAttentionIds((current) => {
+      const next = new Set(current);
+      next.add(attentionId);
+      return next;
+    });
+  };
+
+  const reopenAttention = (attentionId: string) => {
+    setValidatedAttentionIds((current) => {
+      const next = new Set(current);
+      next.delete(attentionId);
+      return next;
+    });
+  };
+
+  const applyOperationalAttentionDecision = (attention: OperationalAttention, decision: AttentionDecision) => {
+    setSnapshot((current) => current ? applyAttentionDecision(current, attention, decision) : current);
+    if (decision.selectedContextKeys.length > 1) validateAttention(attention.id);
+    else reopenAttention(attention.id);
   };
 
   return (
@@ -253,7 +231,7 @@ export default function App() {
             <h1>Início de turno</h1>
           </div>
         </div>
-        <span className="product-chip">V2.5</span>
+        <span className="product-chip">V2.6</span>
       </header>
 
       <section className="command-panel">
@@ -324,32 +302,54 @@ export default function App() {
               <span className={audit.review ? 'overview-icon warning' : 'overview-icon'}>{audit.review ? '!' : '✓'}</span>
               <div>
                 <span>Consolidado {snapshot.currentShift}º → {snapshot.nextShift}º</span>
-                <strong>{audit.review ? `${audit.review} confirmação(ões) necessária(s)` : 'Motor íntegro'}</strong>
+                <strong>{audit.review ? `${audit.review} confirmação(ões) necessária(s)` : pendingAttentionCount ? `${pendingAttentionCount} decisão(ões) operacional(is)` : 'Motor íntegro'}</strong>
               </div>
             </div>
             <div className="overview-metrics">
               <div><span>TNLs</span><strong>{audit.machines}</strong></div>
               <div><span>Cobertura</span><strong>{audit.confidence}%</strong></div>
-              <div className={audit.attentionCount ? 'attention-metric active' : 'attention-metric'}><span>Atenções</span><strong>{audit.attentionCount}</strong></div>
+              <div className={pendingAttentionCount ? 'attention-metric active' : 'attention-metric'}><span>Pendentes</span><strong>{pendingAttentionCount}</strong></div>
             </div>
           </section>
 
           {audit.attentionCount > 0 && (
             <section className="attention-panel" aria-label="Atenções e conflitos do setor">
-              <div className="attention-panel-head">
+              <div className="attention-panel-head compact-attention-panel-head">
                 <div>
                   <span className="attention-kicker">LEITURA CRUZADA</span>
                   <h2>Atenções do setor</h2>
-                  <p>Conflitos exigem confirmação. Sobreposições mostram máquinas que aparecem em mais de um contexto, mesmo quando a sequência é coerente.</p>
+                  <p>Decida onde cada máquina deve permanecer. A escolha atualiza o consolidado e os relatórios.</p>
                 </div>
                 <div className="attention-totals">
                   <span><strong>{audit.issues.length}</strong> confirmar</span>
-                  <span><strong>{audit.attentions.length}</strong> acompanhar</span>
+                  <span><strong>{unresolvedAttentions.length}</strong> decidir</span>
+                  {resolvedAttentions.length > 0 && <span className="resolved-total"><strong>{resolvedAttentions.length}</strong> resolvida(s)</span>}
                 </div>
               </div>
               <div className="attention-list">
                 {audit.issues.map((issue) => <ConflictCard key={issue.id} issue={issue} snapshot={snapshot} />)}
-                {audit.attentions.map((attention) => <OperationalAttentionCard key={attention.id} attention={attention} snapshot={snapshot} />)}
+                {unresolvedAttentions.map((attention) => (
+                  <OperationalAttentionCard
+                    key={attention.id}
+                    attention={attention}
+                    snapshot={snapshot}
+                    resolved={false}
+                    onApply={(decision) => applyOperationalAttentionDecision(attention, decision)}
+                    onValidate={() => validateAttention(attention.id)}
+                    onReopen={() => reopenAttention(attention.id)}
+                  />
+                ))}
+                {resolvedAttentions.map((attention) => (
+                  <OperationalAttentionCard
+                    key={attention.id}
+                    attention={attention}
+                    snapshot={snapshot}
+                    resolved
+                    onApply={(decision) => applyOperationalAttentionDecision(attention, decision)}
+                    onValidate={() => validateAttention(attention.id)}
+                    onReopen={() => reopenAttention(attention.id)}
+                  />
+                ))}
               </div>
             </section>
           )}
