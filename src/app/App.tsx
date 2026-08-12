@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AuditIssue,
   ManualCounters,
@@ -12,6 +12,12 @@ import { getConfirmationInstruction, getConflictContacts, getConflictQuestion } 
 import { parseSector } from '../engine/parser';
 import { generateCompactReport, generateFullReport } from '../engine/reports';
 import { demoInput } from '../features/demo';
+import {
+  clearReportWorkspace,
+  clearWorkspace,
+  readWorkspace,
+  saveWorkspace,
+} from '../storage/workspaceStorage';
 import OperationalAttentionCard from './OperationalAttentionCard';
 import ReportEditor from './ReportEditor';
 
@@ -50,6 +56,7 @@ const counterGroups: Array<{ title: string; items: Array<[keyof ManualCounters, 
 ];
 
 const nextShiftFor = (shift: Shift): Shift => (shift === 3 ? 1 : ((shift + 1) as Shift));
+const restoredWorkspace = readWorkspace();
 
 function ShiftButtons({ value, disabledValue, onChange }: { value: Shift; disabledValue?: Shift; onChange: (shift: Shift) => void }) {
   return (
@@ -130,16 +137,17 @@ function ConflictCard({ issue, snapshot }: { issue: AuditIssue; snapshot: Sector
 }
 
 export default function App() {
-  const [raw, setRaw] = useState('');
-  const [shift, setShift] = useState<Shift>(2);
-  const [selectedNextShift, setSelectedNextShift] = useState<Shift>(3);
-  const [snapshot, setSnapshot] = useState<SectorSnapshot | null>(null);
-  const [counters, setCounters] = useState<ManualCounters>(initialCounters);
-  const [analysisVersion, setAnalysisVersion] = useState(0);
-  const [inputExpanded, setInputExpanded] = useState(true);
+  const [raw, setRaw] = useState(() => restoredWorkspace?.raw ?? '');
+  const [shift, setShift] = useState<Shift>(() => restoredWorkspace?.shift ?? 2);
+  const [selectedNextShift, setSelectedNextShift] = useState<Shift>(() => restoredWorkspace?.selectedNextShift ?? 3);
+  const [snapshot, setSnapshot] = useState<SectorSnapshot | null>(() => restoredWorkspace?.snapshot ?? null);
+  const [counters, setCounters] = useState<ManualCounters>(() => restoredWorkspace?.counters ?? initialCounters);
+  const [analysisVersion, setAnalysisVersion] = useState(() => restoredWorkspace?.analysisVersion ?? 0);
+  const [inputExpanded, setInputExpanded] = useState(() => !restoredWorkspace?.snapshot);
   const [manualExpanded, setManualExpanded] = useState(false);
-  const [analyzedRaw, setAnalyzedRaw] = useState('');
-  const [validatedAttentionIds, setValidatedAttentionIds] = useState<Set<string>>(() => new Set());
+  const [analyzedRaw, setAnalyzedRaw] = useState(() => restoredWorkspace?.analyzedRaw ?? '');
+  const [validatedAttentionIds, setValidatedAttentionIds] = useState<Set<string>>(() => new Set(restoredWorkspace?.validatedAttentionIds ?? []));
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(() => restoredWorkspace?.savedAt ?? null);
   const resultRef = useRef<HTMLElement | null>(null);
 
   const audit = useMemo(() => (snapshot ? auditSnapshot(snapshot) : null), [snapshot]);
@@ -151,6 +159,35 @@ export default function App() {
   const unresolvedAttentions = audit?.attentions.filter((attention) => !validatedAttentionIds.has(attention.id)) || [];
   const resolvedAttentions = audit?.attentions.filter((attention) => validatedAttentionIds.has(attention.id)) || [];
   const pendingAttentionCount = (audit?.issues.length || 0) + unresolvedAttentions.length;
+
+  useEffect(() => {
+    const persist = () => saveWorkspace({
+      raw,
+      analyzedRaw,
+      shift,
+      selectedNextShift,
+      snapshot,
+      counters,
+      validatedAttentionIds: [...validatedAttentionIds],
+      analysisVersion,
+    });
+
+    const timer = window.setTimeout(() => {
+      const savedAt = persist();
+      if (savedAt) setLastSavedAt(savedAt);
+    }, 120);
+
+    const persistImmediately = () => {
+      const savedAt = persist();
+      if (savedAt) setLastSavedAt(savedAt);
+    };
+
+    window.addEventListener('pagehide', persistImmediately);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pagehide', persistImmediately);
+    };
+  }, [raw, analyzedRaw, shift, selectedNextShift, snapshot, counters, validatedAttentionIds, analysisVersion]);
 
   const analyzeForRoute = (currentShift: Shift, nextShift: Shift, shouldScroll = true) => {
     if (!raw.trim()) return;
@@ -184,6 +221,8 @@ export default function App() {
   };
 
   const clearInput = () => {
+    clearWorkspace();
+    clearReportWorkspace();
     setRaw('');
     setAnalyzedRaw('');
     setSnapshot(null);
@@ -191,6 +230,7 @@ export default function App() {
     setValidatedAttentionIds(new Set());
     setInputExpanded(true);
     setManualExpanded(false);
+    setLastSavedAt(null);
     setAnalysisVersion((version) => version + 1);
   };
 
@@ -231,14 +271,14 @@ export default function App() {
             <h1>Início de turno</h1>
           </div>
         </div>
-        <span className="product-chip">V2.6</span>
+        <span className="product-chip">{lastSavedAt ? 'Salvo ✓' : 'V2.7'}</span>
       </header>
 
       <section className="command-panel">
         <div className="command-copy">
           <span>PASSAGEM DE TURNO</span>
           <strong>{shift}º → {selectedNextShift}º</strong>
-          <small>Defina a rota do relatório antes da análise.</small>
+          <small>{lastSavedAt ? 'Salvamento automático ativo neste aparelho.' : 'Defina a rota do relatório antes da análise.'}</small>
         </div>
         <div className="route-selectors">
           <div className="route-selector">
@@ -394,7 +434,12 @@ export default function App() {
             <div className="report-toolbar">
               <div><span className="step-index">04</span><div><h3>Relatórios</h3><small>Edite os blocos e copie exatamente como está na tela</small></div></div>
             </div>
-            <ReportEditor key={analysisVersion} fullReport={fullReport} compactReport={compactReport} />
+            <ReportEditor
+              key={analysisVersion}
+              fullReport={fullReport}
+              compactReport={compactReport}
+              persistenceRevision={analysisVersion}
+            />
           </section>
         </section>
       )}
