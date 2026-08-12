@@ -1,0 +1,66 @@
+/* V2.8 clean cockpit: reduce visual noise and prioritize decisions. */
+:root{
+  --radius:16px;
+  --shadow:0 8px 22px rgba(31,42,68,.045);
+}
+body{
+  background:#f4f6f9;
+}
+.app-shell{
+  width:min(920px,calc(100% - 18px));
+  padding-top:calc(env(safe-area-inset-top,0px) + 8px);
+}
+.topbar{margin-bottom:6px}.brand-mark{width:34px;height:34px;border-radius:10px;box-shadow:none}.eyebrow{font-size:.55rem}h1{font-size:1.15rem}.product-chip{padding:6px 9px;background:#fff;box-shadow:none}
+.command-panel{
+  grid-template-columns:150px 1fr;
+  gap:12px;
+  padding:12px 14px;
+  border-radius:17px;
+  box-shadow:0 10px 24px rgba(28,31,70,.09);
+}
+.command-copy>span{font-size:.52rem}.command-copy>strong{font-size:1.35rem}.command-copy>small{font-size:.58rem}.route-selector label{margin-bottom:4px}.shift-buttons{border-radius:11px;padding:3px}.shift-buttons button{height:34px;border-radius:8px}.route-arrow{padding-top:13px}
+.panel,.attention-panel{border-radius:16px;box-shadow:none}.intake-panel,.situation-panel,.report-panel{margin-top:8px;padding:12px}.step-index{width:27px;height:27px;border-radius:8px;font-size:.61rem}.compact-head h3,.report-toolbar h3{font-size:.91rem}.compact-head small,.report-toolbar small{font-size:.59rem}.intake-panel textarea{min-height:145px;margin-top:9px;border-radius:12px;padding:12px}.input-summary{margin-top:9px;padding:9px;border-radius:12px}.input-summary-stats{gap:10px}.compact-button{min-height:34px}
+.overview-panel{
+  margin-top:8px;
+  padding:9px 11px;
+  border-radius:14px;
+  box-shadow:none;
+}
+.overview-icon{width:27px;height:27px;border-radius:8px}.overview-status{gap:8px}.overview-status span{font-size:.58rem}.overview-status strong{font-size:.75rem}.overview-metrics>div{min-width:60px;padding:4px 8px}.overview-metrics span{font-size:.49rem}.overview-metrics strong{font-size:.92rem}
+.attention-panel{
+  margin-top:8px;
+  padding:12px;
+  border:1px solid #efc8c8;
+  background:#fff;
+}
+.attention-panel-head{align-items:center}.compact-attention-panel-head>div:first-child{max-width:none}.compact-attention-panel-head .attention-kicker{display:none}.compact-attention-panel-head h2{margin:0;font-size:0}.compact-attention-panel-head h2::after{content:"Conflitos e sobreposições";font-size:.98rem;letter-spacing:-.025em;color:var(--ink)}.compact-attention-panel-head p{display:none!important}.attention-totals{flex-direction:row!important;gap:5px}.attention-totals span{padding:5px 7px;font-size:.54rem}.attention-list{gap:6px;margin-top:9px}
+/* Every unresolved cross-reading deserves attention. Real conflicts are stronger red. */
+.attention-card.overlap.decision{
+  padding:9px 10px;
+  border:1px solid #f0c6c6;
+  border-radius:12px;
+  background:#fffafa;
+  box-shadow:inset 3px 0 0 #d95555;
+  transition:background .22s ease,border-color .22s ease,box-shadow .22s ease,transform .22s ease,opacity .22s ease;
+}
+.attention-card.overlap.decision .attention-type{color:#b84848}.attention-card.overlap.decision .attention-status{background:#fff0f0;color:#a83f3f}.attention-card.conflict.critical{background:#fff7f7;border-color:#e9aaaa;box-shadow:inset 4px 0 0 #bd3f3f}.attention-card.conflict.warning{background:#fffaf2}
+.compact-attention-head>div>strong{font-size:.92rem}.compact-context-stack{gap:4px;margin-top:6px}.compact-context-row{grid-template-columns:105px minmax(0,1fr);padding:5px 7px;border-radius:8px;background:#fff}.compact-context-row span{font-size:.54rem}.compact-context-row strong{font-size:.61rem}.compact-source-line{margin-top:5px}.compact-source-line span{font-size:.49rem}.compact-source-line strong{font-size:.55rem}.attention-decision-actions{gap:4px;margin-top:6px}.attention-decision-actions button{min-height:29px;border-radius:8px;font-size:.55rem}.attention-decision-actions button.keep-all{background:#fff;border-color:#e5bcbc;color:#a74646}.attention-decision-actions button.edit-attention{background:#fff;border-color:#e5dff7;color:#6358b8}.attention-decision-actions button:disabled{opacity:.58}
+/* Success feedback before a decision collapses/disappears. */
+.attention-card.overlap.decision.resolving{
+  background:#edf9f2;
+  border-color:#9bd3b5;
+  box-shadow:inset 4px 0 0 #2a9767,0 0 0 4px rgba(42,151,103,.06);
+  transform:scale(.995);
+}
+.attention-card.overlap.decision.resolving>*:not(.decision-success-flash){opacity:.16;transition:opacity .16s ease}.decision-success-flash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:7px;z-index:3;color:#18724d;font-size:.75rem;font-weight:950;animation:decisionSuccess .36s ease both}.decision-success-flash span{width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:#d4f0df;color:#18724d}.attention-card.overlap.decision{position:relative;overflow:hidden}
+@keyframes decisionSuccess{0%{opacity:0;transform:scale(.94)}35%{opacity:1;transform:scale(1.02)}100%{opacity:1;transform:scale(1)}}
+.attention-card.overlap.resolved{padding:7px 9px;border-radius:10px;background:#f3faf6;border-color:#cfe8da;box-shadow:inset 3px 0 0 #2f9a6b;animation:resolvedIn .38s ease both}.resolved-attention-main .attention-type{font-size:.5rem}.resolved-attention-main strong{font-size:.76rem}.resolved-contexts{font-size:.56rem}.attention-reopen{font-size:.54rem}
+@keyframes resolvedIn{0%{background:#dff4e8;transform:translateY(-2px)}100%{background:#f3faf6;transform:translateY(0)}}
+/* Conflicts stay visually dominant and concise. */
+.attention-card.conflict{padding:10px;border-radius:12px}.attention-card.conflict>p{margin-top:6px;font-size:.65rem;line-height:1.35}.attention-sources{margin-top:7px}.attention-action-box{margin-top:7px;padding:8px;border-radius:9px}.attention-action-box strong{font-size:.61rem}.attention-action-box small{font-size:.53rem}.attention-action-box button{min-height:30px;font-size:.56rem}
+.situation-panel{padding:12px}.situation-compact-grid{grid-template-columns:repeat(3,1fr);gap:5px;margin-top:9px}.situation-compact-grid>div{min-height:46px;padding:7px 9px;border-radius:10px;background:#fff}.situation-compact-grid span{font-size:.58rem}.situation-compact-grid strong{font-size:1.03rem}.success-label,.risk-label{padding:5px 7px;font-size:.55rem}
+.manual-panel{margin-top:8px;border-radius:16px}.manual-panel-toggle{padding:12px}.manual-panel-toggle h3{font-size:.9rem}.manual-panel-toggle small{font-size:.57rem}.manual-panel-toggle>span{font-size:.62rem}.manual-groups{padding:0 12px 12px}.counter-row{min-height:48px;border-radius:10px}.counter-actions button{width:29px;height:29px;border-radius:8px}
+.report-panel{padding:12px}.report-toolbar{margin-bottom:8px}.report-workspace{gap:7px}.report-tabs{padding:3px;border-radius:11px}.report-tabs button{min-height:36px;border-radius:8px}.report-version-state small{font-size:.57rem}.automatic-badge,.edited-badge{padding:4px 7px;font-size:.53rem}.report-preview{padding:4px;border-radius:12px;background:#f4f6f9}.report-preview-block{padding:8px 10px;border-radius:10px;box-shadow:none}.report-preview-block+.report-preview-block{margin-top:4px}.report-preview-line{font-size:.7rem;line-height:1.35}.report-preview-line.heading{font-size:.69rem}.empty-report-block{min-height:38px;padding-top:6px;padding-bottom:6px}.empty-report-block .report-preview-line:not(.heading){font-size:.61rem}.editable-report-block,.empty-report-block{padding-right:40px}.block-edit-trigger{right:6px;top:6px;width:27px;height:27px;border-radius:8px;font-size:.72rem}.add-block-button{min-height:36px;margin-top:5px}.report-meta-row{font-size:.57rem}.report-copy-actions .primary-button,.report-copy-actions .secondary-button{min-height:40px;border-radius:11px}
+@media(max-width:720px){.command-panel{grid-template-columns:1fr;padding:11px 12px;gap:8px}.command-copy{display:flex;flex-direction:row;align-items:center;justify-content:space-between}.command-copy>span{display:none}.command-copy>strong{font-size:1.15rem}.route-selectors{gap:5px}.overview-panel{flex-direction:row;align-items:center;gap:8px}.overview-metrics{width:auto}.overview-metrics>div{flex:0 0 auto;border-top:0;border-left:1px solid #e3e7ed;padding:4px 7px}.situation-compact-grid{grid-template-columns:repeat(3,1fr)}.report-editor-toolbar{flex-direction:row;align-items:center}}
+@media(max-width:520px){.app-shell{width:calc(100% - 12px)}.topbar{padding:0 2px}.command-panel{border-radius:15px}.route-selector label{font-size:.55rem}.shift-buttons button{height:32px}.overview-panel{padding:8px 9px}.overview-status strong{font-size:.7rem}.overview-status span{display:none}.overview-metrics>div{min-width:auto;padding:3px 6px}.overview-metrics span{display:none}.overview-metrics strong{font-size:.82rem}.attention-panel{padding:10px}.compact-attention-panel-head{flex-direction:row!important}.compact-attention-panel-head h2::after{font-size:.9rem}.attention-totals span{padding:4px 6px}.attention-totals .resolved-total{display:none}.compact-context-row{grid-template-columns:92px minmax(0,1fr)}.attention-decision-actions{grid-template-columns:1fr 1fr}.situation-compact-grid{grid-template-columns:repeat(2,1fr)}.situation-compact-grid>div{min-height:43px}.report-version-state small{display:none}.report-preview-block{padding:7px 9px}.report-preview-line{font-size:.68rem}.report-preview-line.heading{font-size:.67rem}.empty-report-block{min-height:35px}.report-copy-actions{gap:6px}}
+@media(prefers-reduced-motion:reduce){.decision-success-flash,.attention-card.overlap.resolved{animation:none!important}.attention-card.overlap.decision{transition:none!important}}
