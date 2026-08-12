@@ -27,6 +27,16 @@ export function normalizeTnl(value: string): string | null {
 
 export function extractAllTnls(value: string): string[] {
   const cleaned = stripMarkup(value);
+
+  const grouped = cleaned.match(/TNL\s*0*(\d{1,3}(?:\s*,\s*(?:TNL\s*)?0*\d{1,3})+)/i);
+  if (grouped) {
+    return [...new Set(grouped[1]
+      .split(',')
+      .map((part) => part.replace(/TNL\s*/i, '').trim())
+      .filter(Boolean)
+      .map((n) => `TNL ${String(Number(n)).padStart(3, '0')}`))];
+  }
+
   const direct = [...cleaned.matchAll(/TNL\s*0*(\d{1,3})/gi)].map(
     (m) => `TNL ${String(Number(m[1])).padStart(3, '0')}`,
   );
@@ -66,12 +76,13 @@ export function extractTime(value: string): string | null {
 export function cleanDescription(value: string): string {
   let cleaned = stripMarkup(value)
     .replace(/[🔴🔵🟢]/g, ' ')
-    .replace(/TNL\s*0*\d{1,3}/gi, ' ')
+    .replace(/TNL\s*0*\d{1,3}(?:\s*,\s*(?:TNL\s*)?0*\d{1,3})*/gi, ' ')
+    .replace(/^0*\d{1,3}(?:\s*,\s*0*\d{1,3})*\s*/, ' ')
     .replace(/\b(?:1|2|3)\s*[°º]?\s*(?:T|TURNO)\b/gi, ' ')
     .replace(/\bSETUP\b/gi, ' ')
     .replace(/\b\d{1,2}:\d{2}\b/g, ' ')
     .replace(/\b\d{1,2}\s*[hH]\s*\d{2}\b/g, ' ')
-    .replace(/^[-:\s]+/, '')
+    .replace(/^[-:,\s]+/, '')
     .replace(/[-.\s]+$/, '')
     .replace(/\s+/g, ' ')
     .trim();

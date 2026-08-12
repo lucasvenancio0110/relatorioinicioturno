@@ -89,7 +89,12 @@ export default function App() {
         <aside className="panel engine-panel">
           <div className="panel-head"><div><span className="step-index">02</span><h3>Motor V2</h3></div></div>
           <div className="engine-flow">{['Separar mensagens', 'Normalizar texto', 'Extrair entidades', 'Classificar eventos', 'Auditar saída'].map((label, index) => <div className={snapshot ? 'done' : ''} key={label}><span>{snapshot ? '✓' : String(index + 1).padStart(2, '0')}</span><strong>{label}</strong></div>)}</div>
-          <div className="confidence-card"><span>Confiança operacional</span><strong>{audit ? `${audit.confidence}%` : '—'}</strong><div><i style={{ width: `${audit?.confidence ?? 0}%` }} /></div></div>
+          <div className="confidence-card">
+            <span>Confiança operacional</span>
+            <strong>{audit ? `${audit.confidence}%` : '—'}</strong>
+            <div><i style={{ width: `${audit?.confidence ?? 0}%` }} /></div>
+            {audit && <small>Cobertura: {audit.machines}/{audit.sourceMachines || audit.machines} TNLs do bruto</small>}
+          </div>
         </aside>
       </section>
 
@@ -97,12 +102,12 @@ export default function App() {
         <section className="metrics-row">
           <article><span>Mensagens</span><strong>{audit.messages}</strong><small>fontes detectadas</small></article>
           <article><span>Linhas</span><strong>{audit.lines || '—'}</strong><small>linhas reconhecidas</small></article>
-          <article><span>Máquinas</span><strong>{audit.machines}</strong><small>TNLs consolidadas</small></article>
-          <article className={audit.review ? 'warning' : 'ok'}><span>Revisão</span><strong>{audit.review}</strong><small>{audit.review ? 'itens para conferir' : 'nenhuma pendência'}</small></article>
+          <article><span>Máquinas</span><strong>{audit.machines}</strong><small>{audit.sourceMachines} TNLs vistas no bruto</small></article>
+          <article className={audit.review ? 'warning' : 'ok'}><span>Revisão</span><strong>{audit.review}</strong><small>{audit.review ? `${audit.contradictions} contradição(ões)` : 'nenhuma pendência'}</small></article>
         </section>
 
         <section className="panel situation-panel">
-          <div className="panel-head"><div><span className="step-index">03</span><h3>Situação do setor</h3></div><span className="success-label">Consolidado</span></div>
+          <div className="panel-head"><div><span className="step-index">03</span><h3>Situação do setor</h3></div><span className={audit.review ? 'subtle-label' : 'success-label'}>{audit.review ? 'Revisar exceções' : 'Consolidado íntegro'}</span></div>
           <div className="situation-grid">
             <div><span>Manutenção parada</span><strong>{snapshot.maintenanceStopped.length}</strong></div>
             <div><span>Setup atual</span><strong>{snapshot.setups.length}</strong></div>
@@ -111,7 +116,7 @@ export default function App() {
             <div><span>Ajustes</span><strong>{snapshot.adjustments.length}</strong></div>
             <div><span>Seleções</span><strong>{snapshot.selections.length}</strong></div>
           </div>
-          {snapshot.review.length > 0 && <div className="review-box"><strong>Revisão necessária</strong>{snapshot.review.map((item) => <p key={item}>{item}</p>)}</div>}
+          {audit.issues.length > 0 && <div className="review-box"><strong>Revisão necessária</strong>{audit.issues.map((issue) => <p key={issue.id}>{issue.severity === 'critical' ? 'CRÍTICO · ' : ''}{issue.message}</p>)}</div>}
         </section>
 
         <section className="panel counters-panel">

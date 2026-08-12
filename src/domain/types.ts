@@ -70,10 +70,25 @@ export interface SectorSnapshot {
   review: string[];
 }
 
+export type AuditIssueKind = 'missing-machine' | 'contradiction' | 'parser-review';
+
+export interface AuditIssue {
+  id: string;
+  kind: AuditIssueKind;
+  severity: 'warning' | 'critical';
+  message: string;
+  tnl?: string;
+  sourceIds?: string[];
+}
+
 export interface AuditSummary {
   messages: number;
   lines: number;
   machines: number;
+  sourceMachines: number;
   review: number;
   confidence: number;
+  missingMachines: string[];
+  contradictions: number;
+  issues: AuditIssue[];
 }
