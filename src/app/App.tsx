@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
-import type { ManualCounters, SectorSnapshot, Shift } from '../domain/types';
+import type { AuditIssue, ManualCounters, SectorSnapshot, Shift } from '../domain/types';
 import { auditSnapshot } from '../engine/audit';
+import { getConfirmationInstruction, getConflictContacts, getConflictQuestion } from '../engine/conflictGuidance';
 import { parseSector } from '../engine/parser';
 import { generateCompactReport, generateFullReport } from '../engine/reports';
 import { demoInput } from '../features/demo';
@@ -44,6 +45,60 @@ function Counter({ label, value, onChange }: { label: string; value: number; onC
         <button type="button" aria-label={`Aumentar ${label}`} onClick={() => onChange(value + 1)}>+</button>
       </div>
     </div>
+  );
+}
+
+function ConflictCard({ issue, snapshot }: { issue: AuditIssue; snapshot: SectorSnapshot }) {
+  const [copied, setCopied] = useState(false);
+  const contacts = getConflictContacts(issue, snapshot);
+  const question = getConflictQuestion(issue);
+  const instruction = getConfirmationInstruction(issue, snapshot);
+  const typeLabel = issue.kind === 'contradiction' ? 'Conflito' : issue.kind === 'missing-machine' ? 'Informação não consolidada' : 'Revisar interpretação';
+
+  const copyQuestion = async () => {
+    await navigator.clipboard.writeText(question);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1300);
+  };
+
+  return (
+    <article className={`conflict-card ${issue.severity}`}>
+      <div className="conflict-card-head">
+        <div>
+          <span className="conflict-type">{issue.severity === 'critical' ? '⚠ ' : ''}{typeLabel}</span>
+          <strong>{issue.tnl || 'Confirmação necessária'}</strong>
+        </div>
+        <span className="conflict-severity">{issue.severity === 'critical' ? 'Confirmar antes de enviar' : 'Revisar'}</span>
+      </div>
+
+      <p className="conflict-explanation">{issue.message}</p>
+
+      <div className="conflict-source-area">
+        <span>Quem deve ser consultado</span>
+        {contacts.length ? (
+          <div className="conflict-contacts">
+            {contacts.map((contact) => (
+              <div className="conflict-contact" key={`${contact.sourceId}-${contact.line}`}>
+                <strong>{contact.sender}</strong>
+                <span>{contact.line}</span>
+                {contact.timestamp && <small>{contact.timestamp}</small>}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="no-source-contact">O preparador/linha não pôde ser identificado automaticamente. Confirme com o responsável pelo setor informado.</p>
+        )}
+      </div>
+
+      <div className="confirmation-script">
+        <div>
+          <span>Pergunta sugerida</span>
+          <strong>{question}</strong>
+          <small>{instruction}</small>
+        </div>
+        <button type="button" onClick={copyQuestion}>{copied ? 'Copiada ✓' : 'Copiar pergunta'}</button>
+      </div>
+    </article>
   );
 }
 
@@ -155,7 +210,7 @@ export default function App() {
               <span className={audit.review ? 'engine-icon warning' : 'engine-icon'}>{audit.review ? '!' : '✓'}</span>
               <div>
                 <strong>Motor V2 concluído</strong>
-                <small>{audit.review ? `${audit.review} item(ns) precisam de revisão` : 'Consolidado íntegro, sem perda silenciosa'}</small>
+                <small>{audit.review ? `${audit.review} item(ns) precisam de confirmação` : 'Consolidado íntegro, sem perda silenciosa'}</small>
               </div>
             </div>
             <div className="engine-summary-right">
@@ -172,13 +227,29 @@ export default function App() {
             <article><span>Mensagens</span><strong>{audit.messages}</strong><small>fontes detectadas</small></article>
             <article><span>Linhas</span><strong>{audit.lines || '—'}</strong><small>linhas reconhecidas</small></article>
             <article><span>Máquinas</span><strong>{audit.machines}</strong><small>{audit.sourceMachines} vistas no bruto</small></article>
-            <article className={audit.review ? 'warning' : 'ok'}><span>Revisão</span><strong>{audit.review}</strong><small>{audit.review ? `${audit.contradictions} contradição(ões)` : 'nenhuma pendência'}</small></article>
+            <article className={audit.review ? 'warning' : 'ok'}><span>Revisão</span><strong>{audit.review}</strong><small>{audit.review ? `${audit.contradictions} conflito(s)` : 'nenhuma pendência'}</small></article>
           </section>
+
+          {audit.issues.length > 0 && (
+            <section className="confirmation-panel" aria-label="Conflitos e confirmações">
+              <div className="confirmation-panel-head">
+                <div>
+                  <span className="confirmation-kicker">Antes de enviar</span>
+                  <h3>Conflitos e confirmações</h3>
+                  <p>O motor não escolhe sozinho quando duas informações incompatíveis aparecem. Confirme com o preparador indicado e depois ajuste o bloco correto no relatório.</p>
+                </div>
+                <span className="confirmation-count">{audit.issues.length}</span>
+              </div>
+              <div className="conflict-list">
+                {audit.issues.map((issue) => <ConflictCard key={issue.id} issue={issue} snapshot={snapshot} />)}
+              </div>
+            </section>
+          )}
 
           <section className="panel situation-panel">
             <div className="panel-head">
               <div><span className="step-index">02</span><h3>Situação do setor</h3></div>
-              <span className={audit.review ? 'subtle-label' : 'success-label'}>{audit.review ? 'Revisar exceções' : 'Consolidado íntegro'}</span>
+              <span className={audit.review ? 'subtle-label' : 'success-label'}>{audit.review ? 'Aguardando confirmações' : 'Consolidado íntegro'}</span>
             </div>
             <div className="situation-grid">
               <div><span>Manutenção parada</span><strong>{snapshot.maintenanceStopped.length}</strong></div>
@@ -188,12 +259,6 @@ export default function App() {
               <div><span>Ajustes</span><strong>{snapshot.adjustments.length}</strong></div>
               <div><span>Seleções</span><strong>{snapshot.selections.length}</strong></div>
             </div>
-            {audit.issues.length > 0 && (
-              <div className="review-box">
-                <strong>Revisão necessária</strong>
-                {audit.issues.map((issue) => <p key={issue.id}>{issue.severity === 'critical' ? 'CRÍTICO · ' : ''}{issue.message}</p>)}
-              </div>
-            )}
           </section>
 
           <section className="panel counters-panel">
@@ -211,7 +276,7 @@ export default function App() {
           <section className="panel report-panel">
             <div className="report-toolbar">
               <div><span className="step-index">04</span><h3>Relatórios</h3></div>
-              <span className="subtle-label">Prévia + edição</span>
+              <span className="subtle-label">Edição em blocos</span>
             </div>
             <ReportEditor key={analysisVersion} fullReport={fullReport} compactReport={compactReport} />
           </section>
