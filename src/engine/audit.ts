@@ -1,5 +1,6 @@
 import type { AbsenceRecord, AuditIssue, AuditSummary, MachineRecord, SectionKey, SectorSnapshot } from '../domain/types';
 import { canonical, extractAllTnls, isNA, stripMarkup } from './normalize';
+import { buildOperationalAttentions } from './operationalAttentions';
 import { detectSection, isAdministrativeLine } from './sections';
 
 const machineCollections = (snapshot: SectorSnapshot): MachineRecord[][] => [
@@ -161,6 +162,8 @@ export function auditSnapshot(snapshot: SectorSnapshot): AuditSummary {
     ...absenceContradictions(snapshot.absences),
   ];
 
+  const conflictingTnls = new Set(issues.filter((issue) => issue.kind === 'contradiction' && issue.tnl).map((issue) => issue.tnl as string));
+  const attentions = buildOperationalAttentions(snapshot, conflictingTnls);
   const lineSet = new Set(snapshot.messages.map((message) => message.line).filter(Boolean));
   const contradictionCount = issues.filter((issue) => issue.kind === 'contradiction').length;
   const coverage = rawMachines.size ? (rawMachines.size - missingMachines.length) / rawMachines.size : 1;
@@ -176,6 +179,9 @@ export function auditSnapshot(snapshot: SectorSnapshot): AuditSummary {
     confidence,
     missingMachines,
     contradictions: contradictionCount,
+    overlaps: attentions.length,
+    attentionCount: issues.length + attentions.length,
     issues,
+    attentions,
   };
 }
