@@ -105,6 +105,7 @@ function ConflictCard({ issue, snapshot }: { issue: AuditIssue; snapshot: Sector
 export default function App() {
   const [raw, setRaw] = useState('');
   const [shift, setShift] = useState<Shift>(2);
+  const [selectedNextShift, setSelectedNextShift] = useState<Shift>(3);
   const [snapshot, setSnapshot] = useState<SectorSnapshot | null>(null);
   const [counters, setCounters] = useState<ManualCounters>(initialCounters);
   const [analysisVersion, setAnalysisVersion] = useState(0);
@@ -114,11 +115,10 @@ export default function App() {
   const fullReport = useMemo(() => (snapshot ? generateFullReport(snapshot, counters) : ''), [snapshot, counters]);
   const compactReport = useMemo(() => (snapshot ? generateCompactReport(snapshot) : ''), [snapshot]);
   const rawLineCount = raw.trim() ? raw.trim().split('\n').length : 0;
-  const nextShift = nextShiftFor(shift);
 
-  const analyzeForShift = (selectedShift: Shift, shouldScroll = true) => {
+  const analyzeForRoute = (currentShift: Shift, nextShift: Shift, shouldScroll = true) => {
     if (!raw.trim()) return;
-    const parsed = parseSector(raw, selectedShift);
+    const parsed = parseSector(raw, currentShift, nextShift);
     setSnapshot(parsed);
     setAnalysisVersion((version) => version + 1);
     if (shouldScroll) {
@@ -126,11 +126,22 @@ export default function App() {
     }
   };
 
-  const analyze = () => analyzeForShift(shift);
+  const analyze = () => analyzeForRoute(shift, selectedNextShift);
 
-  const selectShift = (selectedShift: Shift) => {
+  const selectCurrentShift = (selectedShift: Shift) => {
+    let next = selectedNextShift;
+    if (selectedShift === next) {
+      next = nextShiftFor(selectedShift);
+      setSelectedNextShift(next);
+    }
     setShift(selectedShift);
-    if (raw.trim() && snapshot) analyzeForShift(selectedShift, false);
+    if (raw.trim() && snapshot) analyzeForRoute(selectedShift, next, false);
+  };
+
+  const selectNextShift = (selectedShift: Shift) => {
+    if (selectedShift === shift) return;
+    setSelectedNextShift(selectedShift);
+    if (raw.trim() && snapshot) analyzeForRoute(shift, selectedShift, false);
   };
 
   const clearInput = () => {
@@ -161,19 +172,29 @@ export default function App() {
         </div>
 
         <div className="shift-route" aria-label="Fluxo de turnos">
-          <div className="shift-current-card">
+          <div className="shift-selector-card">
             <span>Turno atual</span>
             <div className="shift-control">
               {[1, 2, 3].map((item) => (
-                <button key={item} type="button" className={shift === item ? 'active' : ''} onClick={() => selectShift(item as Shift)}>{item}º</button>
+                <button key={item} type="button" className={shift === item ? 'active' : ''} onClick={() => selectCurrentShift(item as Shift)}>{item}º</button>
               ))}
             </div>
           </div>
           <div className="shift-route-arrow" aria-hidden="true">→</div>
-          <div className="next-shift-card">
+          <div className="shift-selector-card next-shift-selector-card">
             <span>Próximo turno</span>
-            <strong>{nextShift}º</strong>
-            <small>automático</small>
+            <div className="shift-control">
+              {[1, 2, 3].map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  disabled={shift === item}
+                  className={selectedNextShift === item ? 'active' : ''}
+                  onClick={() => selectNextShift(item as Shift)}
+                >{item}º</button>
+              ))}
+            </div>
+            <small>seleção manual</small>
           </div>
         </div>
       </section>
