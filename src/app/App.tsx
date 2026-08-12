@@ -134,7 +134,7 @@ export default function App() {
         <section className="panel report-panel">
           <div className="report-toolbar">
             <div><span className="step-index">05</span><h3>Relatório pronto</h3></div>
-            <div className="segmented">
+            <div className="segmented" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
               <button className={reportMode === 'combined' ? 'active' : ''} onClick={() => setReportMode('combined')}>Ambos</button>
               <button className={reportMode === 'full' ? 'active' : ''} onClick={() => setReportMode('full')}>Completo</button>
               <button className={reportMode === 'compact' ? 'active' : ''} onClick={() => setReportMode('compact')}>Resumido</button>
