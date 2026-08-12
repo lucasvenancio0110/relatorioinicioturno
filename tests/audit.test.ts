@@ -15,12 +15,13 @@ TNL 087 - Preventiva programada
 N/A`;
 
 describe('Motor V2 - integridade operacional', () => {
-  it('aceita manutenção + setup após manutenção como coexistência válida', () => {
+  it('aceita manutenção + próximo setup após manutenção como coexistência válida', () => {
     const snapshot = parseSector(coexistenceInput, 2);
     const audit = auditSnapshot(snapshot);
 
     expect(snapshot.maintenanceStopped.map((item) => item.tnl)).toContain('TNL 087');
-    expect(snapshot.setups.map((item) => item.tnl)).toContain('TNL 087');
+    expect(snapshot.setups.map((item) => item.tnl)).not.toContain('TNL 087');
+    expect(snapshot.upcomingSetups.map((item) => item.tnl)).toContain('TNL 087');
     expect(audit.contradictions).toBe(0);
     expect(audit.missingMachines).toEqual([]);
     expect(audit.confidence).toBe(100);
@@ -43,6 +44,7 @@ TNL 060 - Rodando após intervenção`;
     const snapshot = parseSector(coexistenceInput, 2);
     snapshot.maintenanceStopped = [];
     snapshot.setups = [];
+    snapshot.upcomingSetups = [];
 
     const audit = auditSnapshot(snapshot);
 
