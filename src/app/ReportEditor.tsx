@@ -3,8 +3,11 @@ import { REPORT_SEPARATOR } from '../engine/reports';
 import {
   createReportBlock,
   createReportLine,
+  getSharedReportBlockKey,
   parseReportDocument,
+  removeSharedReportBlock,
   serializeReportDocument,
+  syncSharedReportBlock,
   type ReportDocumentBlock,
 } from '../engine/reportDocument';
 
@@ -20,6 +23,7 @@ interface BlockCardProps {
   index: number;
   total: number;
   editing: boolean;
+  linked: boolean;
   onEdit: () => void;
   onDone: () => void;
   onChange: (block: ReportDocumentBlock) => void;
@@ -27,7 +31,7 @@ interface BlockCardProps {
   onMove: (direction: -1 | 1) => void;
 }
 
-function BlockCard({ block, index, total, editing, onEdit, onDone, onChange, onDelete, onMove }: BlockCardProps) {
+function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onChange, onDelete, onMove }: BlockCardProps) {
   const updateLine = (lineId: string, patch: { text?: string; bold?: boolean }) => {
     onChange({
       ...block,
@@ -45,6 +49,7 @@ function BlockCard({ block, index, total, editing, onEdit, onDone, onChange, onD
   if (!editing) {
     return (
       <article className="report-preview-block editable-report-block">
+        {linked && <span className="linked-block-badge" title="Este bloco é compartilhado entre Completo e Resumido">Vinculado</span>}
         <button className="block-edit-trigger" type="button" onClick={onEdit} aria-label={`Editar bloco ${index + 1}`}>✎</button>
         {block.lines.map((line) => (
           <div className={line.bold ? 'report-preview-line heading' : 'report-preview-line'} key={line.id}>
@@ -58,7 +63,10 @@ function BlockCard({ block, index, total, editing, onEdit, onDone, onChange, onD
   return (
     <article className="report-preview-block report-block-editing">
       <div className="block-edit-toolbar">
-        <strong>Editar bloco {index + 1}</strong>
+        <div>
+          <strong>Editar bloco {index + 1}</strong>
+          {linked && <small>Alterações neste bloco também atualizam a outra versão.</small>}
+        </div>
         <div>
           <button type="button" onClick={() => onMove(-1)} disabled={index === 0} aria-label="Mover bloco para cima">↑</button>
           <button type="button" onClick={() => onMove(1)} disabled={index === total - 1} aria-label="Mover bloco para baixo">↓</button>
@@ -100,6 +108,7 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
   const [fullDirty, setFullDirty] = useState(false);
   const [compactDirty, setCompactDirty] = useState(false);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [editingSharedKey, setEditingSharedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState<'active' | 'both' | null>(null);
 
   useEffect(() => {
@@ -116,20 +125,19 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
   const activeGenerated = tab === 'full' ? fullReport : compactReport;
   const activeDraft = useMemo(() => serializeReportDocument(activeBlocks), [activeBlocks]);
 
-  const updateActiveBlocks = (updater: (current: ReportDocumentBlock[]) => ReportDocumentBlock[]) => {
-    if (tab === 'full') {
-      setFullBlocks((current) => {
-        const next = updater(current);
-        setFullDirty(serializeReportDocument(next) !== fullReport);
-        return next;
-      });
-    } else {
-      setCompactBlocks((current) => {
-        const next = updater(current);
-        setCompactDirty(serializeReportDocument(next) !== compactReport);
-        return next;
-      });
-    }
+  const markFull = (next: ReportDocumentBlock[]) => {
+    setFullBlocks(next);
+    setFullDirty(serializeReportDocument(next) !== fullReport);
+  };
+
+  const markCompact = (next: ReportDocumentBlock[]) => {
+    setCompactBlocks(next);
+    setCompactDirty(serializeReportDocument(next) !== compactReport);
+  };
+
+  const replaceActiveOnly = (next: ReportDocumentBlock[]) => {
+    if (tab === 'full') markFull(next);
+    else markCompact(next);
   };
 
   const restoreActive = () => {
@@ -142,32 +150,61 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
       setCompactDirty(false);
     }
     setEditingBlockId(null);
+    setEditingSharedKey(null);
+  };
+
+  const beginEdit = (block: ReportDocumentBlock) => {
+    setEditingBlockId(block.id);
+    setEditingSharedKey(getSharedReportBlockKey(block));
+  };
+
+  const finishEdit = () => {
+    setEditingBlockId(null);
+    setEditingSharedKey(null);
   };
 
   const changeBlock = (blockId: string, nextBlock: ReportDocumentBlock) => {
-    updateActiveBlocks((current) => current.map((block) => block.id === blockId ? nextBlock : block));
+    const sharedKey = editingBlockId === blockId ? editingSharedKey : getSharedReportBlockKey(activeBlocks.find((block) => block.id === blockId) || nextBlock);
+    const nextActive = activeBlocks.map((block) => block.id === blockId ? nextBlock : block);
+
+    if (tab === 'full') {
+      markFull(nextActive);
+      if (sharedKey) markCompact(syncSharedReportBlock(compactBlocks, sharedKey, nextBlock));
+    } else {
+      markCompact(nextActive);
+      if (sharedKey) markFull(syncSharedReportBlock(fullBlocks, sharedKey, nextBlock));
+    }
   };
 
   const deleteBlock = (blockId: string) => {
-    updateActiveBlocks((current) => current.filter((block) => block.id !== blockId));
-    setEditingBlockId(null);
+    const currentBlock = activeBlocks.find((block) => block.id === blockId);
+    const sharedKey = editingBlockId === blockId ? editingSharedKey : currentBlock ? getSharedReportBlockKey(currentBlock) : null;
+    const nextActive = activeBlocks.filter((block) => block.id !== blockId);
+
+    if (tab === 'full') {
+      markFull(nextActive);
+      if (sharedKey) markCompact(removeSharedReportBlock(compactBlocks, sharedKey));
+    } else {
+      markCompact(nextActive);
+      if (sharedKey) markFull(removeSharedReportBlock(fullBlocks, sharedKey));
+    }
+    finishEdit();
   };
 
   const moveBlock = (blockId: string, direction: -1 | 1) => {
-    updateActiveBlocks((current) => {
-      const index = current.findIndex((block) => block.id === blockId);
-      const target = index + direction;
-      if (index < 0 || target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
+    const index = activeBlocks.findIndex((block) => block.id === blockId);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= activeBlocks.length) return;
+    const next = [...activeBlocks];
+    [next[index], next[target]] = [next[target], next[index]];
+    replaceActiveOnly(next);
   };
 
   const addBlock = () => {
     const block = createReportBlock();
-    updateActiveBlocks((current) => [...current, block]);
+    replaceActiveOnly([...activeBlocks, block]);
     setEditingBlockId(block.id);
+    setEditingSharedKey(null);
     window.setTimeout(() => document.getElementById(`report-block-${block.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
   };
 
@@ -184,11 +221,16 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
 
   const selectTab = (nextTab: ReportTab) => {
     setTab(nextTab);
-    setEditingBlockId(null);
+    finishEdit();
   };
 
   return (
     <div className="report-workspace">
+      <div className="report-sync-note">
+        <strong>Edição inteligente</strong>
+        <span>Blocos operacionais em comum ficam sincronizados entre Completo e Resumido.</span>
+      </div>
+
       <div className="report-tabs" role="tablist" aria-label="Versão do relatório">
         <button type="button" className={tab === 'full' ? 'active' : ''} onClick={() => selectTab('full')}>Completo</button>
         <button type="button" className={tab === 'compact' ? 'active' : ''} onClick={() => selectTab('compact')}>Resumido</button>
@@ -202,7 +244,7 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
           </div>
           <span className={activeDirty ? 'edited-badge' : 'automatic-badge'}>{activeDirty ? 'Alterado nos blocos' : 'Sincronizado com o motor'}</span>
         </div>
-        {activeDirty && <button type="button" className="ghost-button" onClick={restoreActive}>Restaurar automático</button>}
+        {activeDirty && <button type="button" className="ghost-button" onClick={restoreActive}>Restaurar esta versão</button>}
       </div>
 
       <div className="report-preview structured-report" aria-label={`Relatório ${activeLabel.toLowerCase()} editável por blocos`}>
@@ -213,15 +255,16 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
               index={index}
               total={activeBlocks.length}
               editing={editingBlockId === block.id}
-              onEdit={() => setEditingBlockId(block.id)}
-              onDone={() => setEditingBlockId(null)}
+              linked={Boolean(getSharedReportBlockKey(block) || (editingBlockId === block.id && editingSharedKey))}
+              onEdit={() => beginEdit(block)}
+              onDone={finishEdit}
               onChange={(nextBlock) => changeBlock(block.id, nextBlock)}
               onDelete={() => deleteBlock(block.id)}
               onMove={(direction) => moveBlock(block.id, direction)}
             />
           </div>
         ))}
-        <button className="add-block-button" type="button" onClick={addBlock}>+ Adicionar novo bloco</button>
+        <button className="add-block-button" type="button" onClick={addBlock}>+ Adicionar novo bloco somente nesta versão</button>
       </div>
 
       <div className="report-meta-row">
