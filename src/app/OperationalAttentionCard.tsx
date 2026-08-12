@@ -42,12 +42,14 @@ export default function OperationalAttentionCard({
   onReopen,
 }: OperationalAttentionCardProps) {
   const [editing, setEditing] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<string[]>(attention.contexts.map((context) => context.key));
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const contacts = sourceContacts(attention, snapshot);
   const label = attention.kind === 'valid-overlap' ? 'Sobreposição' : 'Múltiplos contextos';
 
   const beginEdit = () => {
+    if (resolving) return;
     setSelectedKeys(attention.contexts.map((context) => context.key));
     setDrafts(Object.fromEntries(attention.contexts.map((context) => [context.key, getContextDescription(snapshot, context.key, attention.tnl)])));
     setEditing(true);
@@ -63,9 +65,17 @@ export default function OperationalAttentionCard({
     });
   };
 
+  const finishWithSuccess = (action: () => void) => {
+    if (resolving) return;
+    setResolving(true);
+    window.setTimeout(action, 360);
+  };
+
   const saveEdit = () => {
-    onApply({ selectedContextKeys: selectedKeys, descriptions: drafts });
-    setEditing(false);
+    finishWithSuccess(() => {
+      onApply({ selectedContextKeys: selectedKeys, descriptions: drafts });
+      setEditing(false);
+    });
   };
 
   if (resolved) {
@@ -73,7 +83,7 @@ export default function OperationalAttentionCard({
       <article className={`attention-card overlap resolved ${attention.severity}`}>
         <div className="resolved-attention-main">
           <div>
-            <span className="attention-type">Validado</span>
+            <span className="attention-type">Resolvido ✓</span>
             <strong>{attention.tnl}</strong>
           </div>
           <span className="resolved-contexts">{attention.contexts.map((context) => context.label).join(' + ')}</span>
@@ -84,7 +94,9 @@ export default function OperationalAttentionCard({
   }
 
   return (
-    <article className={`attention-card overlap decision ${attention.severity} ${editing ? 'editing' : ''}`}>
+    <article className={`attention-card overlap decision ${attention.severity} ${editing ? 'editing' : ''} ${resolving ? 'resolving' : ''}`}>
+      {resolving && <div className="decision-success-flash" role="status"><span>✓</span> Resolvido</div>}
+
       <div className="attention-card-head compact-attention-head">
         <div>
           <span className="attention-type">{label}</span>
@@ -106,21 +118,31 @@ export default function OperationalAttentionCard({
 
           {contacts.length > 0 && (
             <div className="compact-source-line">
-              <span>Informado por</span>
+              <span>Origem</span>
               <strong>{contacts.map((contact) => `${contact.sender} · ${contact.line}`).join(' / ')}</strong>
             </div>
           )}
 
           <div className="attention-decision-actions">
-            <button type="button" className="keep-all" onClick={onValidate}>
+            <button
+              type="button"
+              className="keep-all"
+              disabled={resolving}
+              onClick={() => finishWithSuccess(onValidate)}
+            >
               {attention.contexts.length === 2 ? 'Manter nos dois' : 'Manter em todos'}
             </button>
             {attention.contexts.map((context) => (
-              <button key={context.key} type="button" onClick={() => onApply({ selectedContextKeys: [context.key] })}>
+              <button
+                key={context.key}
+                type="button"
+                disabled={resolving}
+                onClick={() => finishWithSuccess(() => onApply({ selectedContextKeys: [context.key] }))}
+              >
                 Só {shortContextLabel(context.label)}
               </button>
             ))}
-            <button type="button" className="edit-attention" onClick={beginEdit}>Editar</button>
+            <button type="button" className="edit-attention" disabled={resolving} onClick={beginEdit}>Editar</button>
           </div>
         </>
       ) : (
@@ -135,7 +157,7 @@ export default function OperationalAttentionCard({
               const selected = selectedKeys.includes(context.key);
               return (
                 <div className={selected ? 'attention-editor-row selected' : 'attention-editor-row'} key={context.key}>
-                  <button type="button" className="context-check" onClick={() => toggleContext(context.key)} aria-pressed={selected}>
+                  <button type="button" className="context-check" disabled={resolving} onClick={() => toggleContext(context.key)} aria-pressed={selected}>
                     {selected ? '✓' : ''}
                   </button>
                   <div>
@@ -143,7 +165,7 @@ export default function OperationalAttentionCard({
                     <input
                       type="text"
                       value={drafts[context.key] ?? ''}
-                      disabled={!selected}
+                      disabled={!selected || resolving}
                       placeholder="Sem detalhe adicional"
                       onChange={(event) => setDrafts((current) => ({ ...current, [context.key]: event.target.value }))}
                     />
@@ -154,8 +176,8 @@ export default function OperationalAttentionCard({
           </div>
 
           <div className="attention-editor-actions">
-            <button type="button" onClick={() => setEditing(false)}>Cancelar</button>
-            <button type="button" className="save-attention" onClick={saveEdit}>Aplicar no consolidado</button>
+            <button type="button" disabled={resolving} onClick={() => setEditing(false)}>Cancelar</button>
+            <button type="button" className="save-attention" disabled={resolving} onClick={saveEdit}>Aplicar no consolidado</button>
           </div>
         </div>
       )}
