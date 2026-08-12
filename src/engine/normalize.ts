@@ -18,8 +18,6 @@ export function canonical(value: string): string {
     .toUpperCase();
 }
 
-const tnlPrefix = /TNL\s*(?:S?\s*N[°º]?\s*)?/i;
-
 export function normalizeTnl(value: string): string | null {
   const cleaned = stripMarkup(value);
   const match = cleaned.match(/TNL\s*(?:S?\s*N[°º]?\s*)?0*(\d{1,3})/i);
