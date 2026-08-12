@@ -6,6 +6,7 @@ import './styles/report-editor.css';
 import './styles/block-editor-conflicts.css';
 import './styles/attention-decisions.css';
 import './styles/interaction.css';
+import './styles/clean-cockpit.css';
 
 const preventGestureZoom = (event: Event) => event.preventDefault();
 document.addEventListener('gesturestart', preventGestureZoom, { passive: false });
