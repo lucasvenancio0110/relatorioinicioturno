@@ -15,7 +15,11 @@ export function detectSection(value: string): SectionKey | null {
   return null;
 }
 
+function isLineHeader(canonicalValue: string): boolean {
+  return /^LINHA\s+(?:N[°º]?\s*)?(?:\d|TNL\b)/.test(canonicalValue);
+}
+
 export function isAdministrativeLine(value: string): boolean {
   const c = canonical(value);
-  return !c || c.includes('BOA TARDE') || c.includes('INICIO DE TURNO') || /^LINHA\b/.test(c) || /^CELULA\b/.test(c);
+  return !c || c.includes('BOA TARDE') || c.includes('INICIO DE TURNO') || isLineHeader(c) || /^CELULA\s+(?:N[°º]?\s*)?\d/.test(c);
 }

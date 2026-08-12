@@ -58,12 +58,15 @@ export interface SectorSnapshot {
   messages: SourceMessage[];
   maintenanceStopped: MachineRecord[];
   maintenanceProducing: MachineRecord[];
+  maintenanceStoppedNotes: string[];
+  maintenanceProducingNotes: string[];
   setups: SetupRecord[];
   upcomingSetups: SetupRecord[];
   nextShiftSetups: SetupRecord[];
   adjustments: MachineRecord[];
   selections: MachineRecord[];
   development: MachineRecord[];
+  developmentNotes: string[];
   absences: AbsenceRecord[];
   operators4: string[];
   observations: string[];
