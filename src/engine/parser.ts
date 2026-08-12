@@ -1,5 +1,5 @@
 import type { AbsenceRecord, MachineRecord, SectionKey, SectorSnapshot, SetupRecord, Shift } from '../domain/types';
-import { canonical, cleanDescription, extractAllTnls, extractSeverity, extractShift, extractTime, isNA, normalizeTnl, stripMarkup, titleCaseName } from './normalize';
+import { canonical, cleanDescription, cleanOperationalText, extractAllTnls, extractSeverity, extractShift, extractTime, isNA, normalizeTnl, stripMarkup, titleCaseName } from './normalize';
 import { splitMessages } from './messages';
 import { detectSection, isAdministrativeLine } from './sections';
 
@@ -49,6 +49,16 @@ function parseAbsence(line: string, sourceId: string): AbsenceRecord | null {
   return { name, type: 'absence', sourceId };
 }
 
+function preferDescribedDevelopment(items: MachineRecord[]): MachineRecord[] {
+  const described = new Set(items.filter((item) => Boolean(item.description)).map((item) => item.tnl));
+  return items.filter((item) => item.description || !described.has(item.tnl));
+}
+
+function isActiveSetupText(value: string): boolean {
+  const c = canonical(value);
+  return /EM SETUP|SETUP EM ANDAMENTO|MAQUINA EM SETUP|SETUP\s*\/|INICIAR(?: SETUP)?|INICIANDO|INICIADO|AGUARDANDO SETUP|APOS MANUTENCAO/.test(c);
+}
+
 export function parseSector(raw: string, currentShift: Shift = 2): SectorSnapshot {
   const messages = splitMessages(raw);
   const targetNextShift = nextShift(currentShift);
@@ -58,12 +68,15 @@ export function parseSector(raw: string, currentShift: Shift = 2): SectorSnapsho
     messages,
     maintenanceStopped: [],
     maintenanceProducing: [],
+    maintenanceStoppedNotes: [],
+    maintenanceProducingNotes: [],
     setups: [],
     upcomingSetups: [],
     nextShiftSetups: [],
     adjustments: [],
     selections: [],
     development: [],
+    developmentNotes: [],
     absences: [],
     operators4: [],
     observations: [],
@@ -84,10 +97,9 @@ export function parseSector(raw: string, currentShift: Shift = 2): SectorSnapsho
         if (!tnl) { snapshot.review.push(`Setup sem TNL clara: ${line}`); continue; }
         const explicitShift = extractShift(line);
         const time = extractTime(line);
-        const c = canonical(line);
-        const active = /EM SETUP|INICIAR|INICIANDO|INICIADO|APOS MANUTENCAO/.test(c);
+        const active = isActiveSetupText(line);
 
-        if (explicitShift === targetNextShift) {
+        if (explicitShift === targetNextShift && !active) {
           const setup = makeSetup(line, message.id, targetNextShift, 'scheduled');
           if (setup) snapshot.nextShiftSetups.push(setup);
         } else if (time || section === 'nextSetups' || (explicitShift && explicitShift === currentShift && !active)) {
@@ -101,10 +113,17 @@ export function parseSector(raw: string, currentShift: Shift = 2): SectorSnapsho
       }
 
       if (section === 'maintenance') {
+        const producing = /PRODUZINDO|RODANDO|EM PRODUCAO/.test(canonical(line));
         const item = makeMachine(line, message.id);
-        if (!item) { snapshot.review.push(`Manutenção sem TNL clara: ${line}`); continue; }
-        if (/PRODUZINDO|RODANDO|EM PRODUCAO/.test(canonical(line))) snapshot.maintenanceProducing.push(item);
-        else snapshot.maintenanceStopped.push(item);
+        if (item) {
+          if (producing) snapshot.maintenanceProducing.push(item);
+          else snapshot.maintenanceStopped.push(item);
+        } else {
+          const note = cleanOperationalText(line);
+          if (!note) continue;
+          if (producing) snapshot.maintenanceProducingNotes.push(note);
+          else snapshot.maintenanceStoppedNotes.push(note);
+        }
         continue;
       }
 
@@ -125,8 +144,11 @@ export function parseSector(raw: string, currentShift: Shift = 2): SectorSnapsho
 
       if (section === 'development') {
         const item = makeMachine(line, message.id);
-        if (!item) { snapshot.review.push(`Desenvolvimento sem TNL clara: ${line}`); continue; }
-        snapshot.development.push(item);
+        if (item) snapshot.development.push(item);
+        else {
+          const note = cleanOperationalText(line.replace(/^DESENVOLVIMENTO\s*:/i, ''));
+          if (note) snapshot.developmentNotes.push(note);
+        }
         continue;
       }
 
@@ -142,18 +164,27 @@ export function parseSector(raw: string, currentShift: Shift = 2): SectorSnapsho
         continue;
       }
 
-      if (section === 'observations') snapshot.observations.push(line);
+      if (section === 'observations') {
+        const observation = cleanOperationalText(line);
+        const c = canonical(observation);
+        if (observation && c !== 'MENSAGEM EDITADA' && !c.includes('BOA TARDE') && !c.includes('INICIO DE TURNO') && !/^LINHA\b/.test(c) && !/^CELULA\b/.test(c)) {
+          snapshot.observations.push(observation);
+        }
+      }
     }
   }
 
   snapshot.maintenanceStopped = uniqueMachines(snapshot.maintenanceStopped);
   snapshot.maintenanceProducing = uniqueMachines(snapshot.maintenanceProducing);
+  snapshot.maintenanceStoppedNotes = uniqueStrings(snapshot.maintenanceStoppedNotes);
+  snapshot.maintenanceProducingNotes = uniqueStrings(snapshot.maintenanceProducingNotes);
   snapshot.setups = uniqueMachines(snapshot.setups) as SetupRecord[];
   snapshot.upcomingSetups = uniqueMachines(snapshot.upcomingSetups) as SetupRecord[];
   snapshot.nextShiftSetups = uniqueMachines(snapshot.nextShiftSetups) as SetupRecord[];
   snapshot.adjustments = uniqueMachines(snapshot.adjustments);
   snapshot.selections = uniqueMachines(snapshot.selections);
-  snapshot.development = uniqueMachines(snapshot.development);
+  snapshot.development = preferDescribedDevelopment(uniqueMachines(snapshot.development));
+  snapshot.developmentNotes = uniqueStrings(snapshot.developmentNotes);
   snapshot.operators4 = uniqueStrings(snapshot.operators4);
   snapshot.observations = uniqueStrings(snapshot.observations);
   snapshot.review = uniqueStrings(snapshot.review);
