@@ -2,8 +2,9 @@ import { useMemo, useRef, useState } from 'react';
 import type { ManualCounters, SectorSnapshot, Shift } from '../domain/types';
 import { auditSnapshot } from '../engine/audit';
 import { parseSector } from '../engine/parser';
-import { generateCombinedReport, generateCompactReport, generateFullReport } from '../engine/reports';
+import { generateCompactReport, generateFullReport } from '../engine/reports';
 import { demoInput } from '../features/demo';
+import ReportEditor from './ReportEditor';
 
 const initialCounters: ManualCounters = {
   checkpoint: 0,
@@ -29,7 +30,7 @@ const counterLabels: Array<[keyof ManualCounters, string]> = [
   ['selectionTnc', 'Seleção TNC'],
 ];
 
-type ReportMode = 'combined' | 'full' | 'compact';
+const nextShiftFor = (shift: Shift): Shift => (shift === 3 ? 1 : ((shift + 1) as Shift));
 
 function Counter({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
   return (
@@ -51,38 +52,37 @@ export default function App() {
   const [shift, setShift] = useState<Shift>(2);
   const [snapshot, setSnapshot] = useState<SectorSnapshot | null>(null);
   const [counters, setCounters] = useState<ManualCounters>(initialCounters);
-  const [reportMode, setReportMode] = useState<ReportMode>('combined');
-  const [copied, setCopied] = useState(false);
+  const [analysisVersion, setAnalysisVersion] = useState(0);
   const resultRef = useRef<HTMLElement | null>(null);
 
   const audit = useMemo(() => (snapshot ? auditSnapshot(snapshot) : null), [snapshot]);
-  const report = useMemo(() => {
-    if (!snapshot) return '';
-    if (reportMode === 'full') return generateFullReport(snapshot, counters);
-    if (reportMode === 'compact') return generateCompactReport(snapshot);
-    return generateCombinedReport(snapshot, counters);
-  }, [snapshot, counters, reportMode]);
-
+  const fullReport = useMemo(() => (snapshot ? generateFullReport(snapshot, counters) : ''), [snapshot, counters]);
+  const compactReport = useMemo(() => (snapshot ? generateCompactReport(snapshot) : ''), [snapshot]);
   const rawLineCount = raw.trim() ? raw.trim().split('\n').length : 0;
+  const nextShift = nextShiftFor(shift);
 
-  const analyze = () => {
+  const analyzeForShift = (selectedShift: Shift, shouldScroll = true) => {
     if (!raw.trim()) return;
-    setSnapshot(parseSector(raw, shift));
-    window.setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    const parsed = parseSector(raw, selectedShift);
+    setSnapshot(parsed);
+    setAnalysisVersion((version) => version + 1);
+    if (shouldScroll) {
+      window.setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    }
+  };
+
+  const analyze = () => analyzeForShift(shift);
+
+  const selectShift = (selectedShift: Shift) => {
+    setShift(selectedShift);
+    if (raw.trim() && snapshot) analyzeForShift(selectedShift, false);
   };
 
   const clearInput = () => {
     setRaw('');
     setSnapshot(null);
     setCounters(initialCounters);
-    setCopied(false);
-  };
-
-  const copyReport = async () => {
-    if (!report) return;
-    await navigator.clipboard.writeText(report);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1400);
+    setAnalysisVersion((version) => version + 1);
   };
 
   return (
@@ -104,12 +104,21 @@ export default function App() {
           <h2>Cole. Analise. Envie.</h2>
           <p>As mensagens dos preparadores viram um consolidado confiável e dois relatórios prontos para o WhatsApp.</p>
         </div>
-        <div className="shift-control">
-          <span>Turno atual</span>
-          <div>
-            {[1, 2, 3].map((item) => (
-              <button key={item} type="button" className={shift === item ? 'active' : ''} onClick={() => setShift(item as Shift)}>{item}º</button>
-            ))}
+
+        <div className="shift-route" aria-label="Fluxo de turnos">
+          <div className="shift-current-card">
+            <span>Turno atual</span>
+            <div className="shift-control">
+              {[1, 2, 3].map((item) => (
+                <button key={item} type="button" className={shift === item ? 'active' : ''} onClick={() => selectShift(item as Shift)}>{item}º</button>
+              ))}
+            </div>
+          </div>
+          <div className="shift-route-arrow" aria-hidden="true">→</div>
+          <div className="next-shift-card">
+            <span>Próximo turno</span>
+            <strong>{nextShift}º</strong>
+            <small>automático</small>
           </div>
         </div>
       </section>
@@ -149,10 +158,13 @@ export default function App() {
                 <small>{audit.review ? `${audit.review} item(ns) precisam de revisão` : 'Consolidado íntegro, sem perda silenciosa'}</small>
               </div>
             </div>
-            <div className="confidence-inline">
-              <span>Confiança</span>
-              <strong>{audit.confidence}%</strong>
-              <small>{audit.machines}/{audit.sourceMachines || audit.machines} TNLs cobertas</small>
+            <div className="engine-summary-right">
+              <div className="shift-inline"><span>Turnos</span><strong>{snapshot.currentShift}º → {snapshot.nextShift}º</strong></div>
+              <div className="confidence-inline">
+                <span>Confiança</span>
+                <strong>{audit.confidence}%</strong>
+                <small>{audit.machines}/{audit.sourceMachines || audit.machines} TNLs cobertas</small>
+              </div>
             </div>
           </div>
 
@@ -198,18 +210,10 @@ export default function App() {
 
           <section className="panel report-panel">
             <div className="report-toolbar">
-              <div><span className="step-index">04</span><h3>Relatório pronto</h3></div>
-              <div className="segmented" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-                <button className={reportMode === 'combined' ? 'active' : ''} type="button" onClick={() => setReportMode('combined')}>Ambos</button>
-                <button className={reportMode === 'full' ? 'active' : ''} type="button" onClick={() => setReportMode('full')}>Completo</button>
-                <button className={reportMode === 'compact' ? 'active' : ''} type="button" onClick={() => setReportMode('compact')}>Resumido</button>
-              </div>
+              <div><span className="step-index">04</span><h3>Relatórios</h3></div>
+              <span className="subtle-label">Prévia + edição</span>
             </div>
-            <pre>{report}</pre>
-            <div className="report-footer">
-              <span>{report.split('\n').length} linhas geradas</span>
-              <button className="primary-button" type="button" onClick={copyReport}>{copied ? 'Copiado ✓' : 'Copiar para WhatsApp'}</button>
-            </div>
+            <ReportEditor key={analysisVersion} fullReport={fullReport} compactReport={compactReport} />
           </section>
         </section>
       )}
