@@ -56,7 +56,12 @@ function preferDescribedDevelopment(items: MachineRecord[]): MachineRecord[] {
 
 function isActiveSetupText(value: string): boolean {
   const c = canonical(value);
-  return /EM SETUP|SETUP EM ANDAMENTO|MAQUINA EM SETUP|SETUP\s*\/|INICIAR(?: SETUP)?|INICIANDO|INICIADO|AGUARDANDO SETUP|APOS MANUTENCAO/.test(c);
+  return /EM SETUP|SETUP EM ANDAMENTO|MAQUINA EM SETUP|SETUP\s*\/|INICIAR(?: SETUP)?|INICIANDO|INICIADO|AGUARDANDO SETUP/.test(c);
+}
+
+function isDeferredSetupText(value: string): boolean {
+  const c = canonical(value);
+  return /APOS(?: A)? MANUTENCAO|APOS MANUT|DEPOIS DA MANUTENCAO|AGUARDANDO MANUTENCAO|LIBERAR APOS MANUTENCAO/.test(c);
 }
 
 export function parseSector(raw: string, currentShift: Shift = 2): SectorSnapshot {
@@ -98,11 +103,12 @@ export function parseSector(raw: string, currentShift: Shift = 2): SectorSnapsho
         const explicitShift = extractShift(line);
         const time = extractTime(line);
         const active = isActiveSetupText(line);
+        const deferred = isDeferredSetupText(line);
 
-        if (explicitShift === targetNextShift && !active) {
+        if (explicitShift === targetNextShift && !active && !deferred) {
           const setup = makeSetup(line, message.id, targetNextShift, 'scheduled');
           if (setup) snapshot.nextShiftSetups.push(setup);
-        } else if (time || section === 'nextSetups' || (explicitShift && explicitShift === currentShift && !active)) {
+        } else if (deferred || time || section === 'nextSetups' || (explicitShift && explicitShift === currentShift && !active)) {
           const setup = makeSetup(line, message.id, explicitShift || currentShift, 'scheduled');
           if (setup) snapshot.upcomingSetups.push(setup);
         } else {
