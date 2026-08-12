@@ -64,9 +64,9 @@ function isDeferredSetupText(value: string): boolean {
   return /APOS(?: A)? MANUTENCAO|APOS MANUT|DEPOIS DA MANUTENCAO|AGUARDANDO MANUTENCAO|LIBERAR APOS MANUTENCAO/.test(c);
 }
 
-export function parseSector(raw: string, currentShift: Shift = 2): SectorSnapshot {
+export function parseSector(raw: string, currentShift: Shift = 2, selectedNextShift?: Shift): SectorSnapshot {
   const messages = splitMessages(raw);
-  const targetNextShift = nextShift(currentShift);
+  const targetNextShift = selectedNextShift && selectedNextShift !== currentShift ? selectedNextShift : nextShift(currentShift);
   const snapshot: SectorSnapshot = {
     currentShift,
     nextShift: targetNextShift,
