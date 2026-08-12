@@ -58,6 +58,24 @@ function sourceIdsFor(items: MachineRecord[], tnl: string): string[] {
   return [...new Set(items.filter((item) => item.tnl === tnl).map((item) => item.sourceId).filter((id): id is string => Boolean(id)))];
 }
 
+function rawSourceIdsForTnl(snapshot: SectorSnapshot, targetTnl: string): string[] {
+  const ids = new Set<string>();
+
+  snapshot.messages.forEach((message) => {
+    let section: SectionKey | null = null;
+    message.body.split('\n').forEach((rawLine) => {
+      const line = stripMarkup(rawLine);
+      if (!line) return;
+      const detected = detectSection(line);
+      if (detected) { section = detected; return; }
+      if (!section || !auditedSections.has(section) || isAdministrativeLine(line) || isNA(line)) return;
+      if (extractAllTnls(line).includes(targetTnl)) ids.add(message.id);
+    });
+  });
+
+  return [...ids];
+}
+
 function maintenanceContradictions(snapshot: SectorSnapshot): AuditIssue[] {
   const stopped = new Set(snapshot.maintenanceStopped.map((item) => item.tnl));
   const producing = new Set(snapshot.maintenanceProducing.map((item) => item.tnl));
@@ -73,7 +91,26 @@ function maintenanceContradictions(snapshot: SectorSnapshot): AuditIssue[] {
         ...sourceIdsFor(snapshot.maintenanceStopped, tnl),
         ...sourceIdsFor(snapshot.maintenanceProducing, tnl),
       ],
-      message: `${tnl} aparece ao mesmo tempo como manutenção parada e manutenção produzindo.`,
+      message: `${tnl} aparece ao mesmo tempo como manutenção parada e manutenção produzindo. Os dois estados não podem ser verdadeiros no mesmo momento.`,
+    }));
+}
+
+function setupMaintenanceContradictions(snapshot: SectorSnapshot): AuditIssue[] {
+  const stopped = new Set(snapshot.maintenanceStopped.map((item) => item.tnl));
+  const activeSetups = new Set(snapshot.setups.map((item) => item.tnl));
+
+  return [...stopped]
+    .filter((tnl) => activeSetups.has(tnl))
+    .map((tnl) => ({
+      id: `setup-maintenance-${tnl}`,
+      kind: 'contradiction' as const,
+      severity: 'critical' as const,
+      tnl,
+      sourceIds: [
+        ...sourceIdsFor(snapshot.maintenanceStopped, tnl),
+        ...sourceIdsFor(snapshot.setups, tnl),
+      ],
+      message: `${tnl} aparece como setup ativo e manutenção parada ao mesmo tempo. Confirme se a máquina já saiu da manutenção ou se o setup ainda não começou.`,
     }));
 }
 
@@ -93,7 +130,7 @@ function absenceContradictions(absences: AbsenceRecord[]): AuditIssue[] {
       kind: 'contradiction',
       severity: 'warning',
       sourceIds: [...new Set(items.map((item) => item.sourceId).filter((id): id is string => Boolean(id)))],
-      message: `${items[0].name} aparece com mais de uma classificação de ausência.`,
+      message: `${items[0].name} aparece com mais de uma classificação de ausência. Confirme qual situação deve constar no relatório.`,
     });
   });
   return issues;
@@ -116,9 +153,11 @@ export function auditSnapshot(snapshot: SectorSnapshot): AuditSummary {
       kind: 'missing-machine' as const,
       severity: 'critical' as const,
       tnl,
-      message: `${tnl} foi identificada no texto bruto, mas não chegou ao modelo consolidado.`,
+      sourceIds: rawSourceIdsForTnl(snapshot, tnl),
+      message: `${tnl} foi identificada no texto bruto, mas não chegou ao modelo consolidado. Confirme a situação antes de finalizar o relatório.`,
     })),
     ...maintenanceContradictions(snapshot),
+    ...setupMaintenanceContradictions(snapshot),
     ...absenceContradictions(snapshot.absences),
   ];
 
