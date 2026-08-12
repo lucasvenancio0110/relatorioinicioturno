@@ -10,12 +10,14 @@ import {
   syncSharedReportBlock,
   type ReportDocumentBlock,
 } from '../engine/reportDocument';
+import { readReportWorkspace, saveReportWorkspace } from '../storage/workspaceStorage';
 
 type ReportTab = 'full' | 'compact';
 
 interface ReportEditorProps {
   fullReport: string;
   compactReport: string;
+  persistenceRevision: number;
 }
 
 interface BlockCardProps {
@@ -102,12 +104,13 @@ function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onCha
   );
 }
 
-export default function ReportEditor({ fullReport, compactReport }: ReportEditorProps) {
-  const [tab, setTab] = useState<ReportTab>('full');
-  const [fullBlocks, setFullBlocks] = useState<ReportDocumentBlock[]>(() => parseReportDocument(fullReport));
-  const [compactBlocks, setCompactBlocks] = useState<ReportDocumentBlock[]>(() => parseReportDocument(compactReport));
-  const [fullDirty, setFullDirty] = useState(false);
-  const [compactDirty, setCompactDirty] = useState(false);
+export default function ReportEditor({ fullReport, compactReport, persistenceRevision }: ReportEditorProps) {
+  const [restored] = useState(() => readReportWorkspace(persistenceRevision, fullReport, compactReport));
+  const [tab, setTab] = useState<ReportTab>(() => restored?.tab ?? 'full');
+  const [fullBlocks, setFullBlocks] = useState<ReportDocumentBlock[]>(() => restored?.fullBlocks ?? parseReportDocument(fullReport));
+  const [compactBlocks, setCompactBlocks] = useState<ReportDocumentBlock[]>(() => restored?.compactBlocks ?? parseReportDocument(compactReport));
+  const [fullDirty, setFullDirty] = useState(() => restored?.fullDirty ?? false);
+  const [compactDirty, setCompactDirty] = useState(() => restored?.compactDirty ?? false);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editingSharedKey, setEditingSharedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState<'active' | 'both' | null>(null);
@@ -119,6 +122,19 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
   useEffect(() => {
     if (!compactDirty) setCompactBlocks(parseReportDocument(compactReport));
   }, [compactReport, compactDirty]);
+
+  useEffect(() => {
+    saveReportWorkspace({
+      revision: persistenceRevision,
+      sourceFullReport: fullReport,
+      sourceCompactReport: compactReport,
+      tab,
+      fullBlocks,
+      compactBlocks,
+      fullDirty,
+      compactDirty,
+    });
+  }, [persistenceRevision, fullReport, compactReport, tab, fullBlocks, compactBlocks, fullDirty, compactDirty]);
 
   const activeBlocks = tab === 'full' ? fullBlocks : compactBlocks;
   const activeDirty = tab === 'full' ? fullDirty : compactDirty;
@@ -142,12 +158,12 @@ export default function ReportEditor({ fullReport, compactReport }: ReportEditor
   };
 
   const restoreActive = () => {
-    const restored = parseReportDocument(activeGenerated);
+    const restoredDocument = parseReportDocument(activeGenerated);
     if (tab === 'full') {
-      setFullBlocks(restored);
+      setFullBlocks(restoredDocument);
       setFullDirty(false);
     } else {
-      setCompactBlocks(restored);
+      setCompactBlocks(restoredDocument);
       setCompactDirty(false);
     }
     setEditingBlockId(null);
