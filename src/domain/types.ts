@@ -84,6 +84,26 @@ export interface AuditIssue {
   sourceIds?: string[];
 }
 
+export interface OperationalAttentionContext {
+  key: string;
+  label: string;
+  detail?: string;
+  sourceIds: string[];
+}
+
+export type OperationalAttentionKind = 'valid-overlap' | 'multi-context';
+
+export interface OperationalAttention {
+  id: string;
+  kind: OperationalAttentionKind;
+  severity: 'info' | 'warning';
+  tnl: string;
+  title: string;
+  message: string;
+  contexts: OperationalAttentionContext[];
+  sourceIds: string[];
+}
+
 export interface AuditSummary {
   messages: number;
   lines: number;
@@ -93,5 +113,8 @@ export interface AuditSummary {
   confidence: number;
   missingMachines: string[];
   contradictions: number;
+  overlaps: number;
+  attentionCount: number;
   issues: AuditIssue[];
+  attentions: OperationalAttention[];
 }
