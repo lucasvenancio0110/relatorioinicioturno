@@ -14,6 +14,7 @@ export interface PersistedWorkspace {
   snapshot: SectorSnapshot | null;
   counters: ManualCounters;
   validatedAttentionIds: string[];
+  validatedInterpretationIds?: string[];
   analysisVersion: number;
 }
 
@@ -44,6 +45,7 @@ export function parsePersistedWorkspace(serialized: string | null): PersistedWor
     if (!isShift(value.shift) || !isShift(value.selectedNextShift) || value.shift === value.selectedNextShift) return null;
     if (typeof value.raw !== 'string' || typeof value.analyzedRaw !== 'string') return null;
     if (!isObject(value.counters) || !Array.isArray(value.validatedAttentionIds)) return null;
+    if (value.validatedInterpretationIds !== undefined && !Array.isArray(value.validatedInterpretationIds)) return null;
     if (typeof value.analysisVersion !== 'number' || !Number.isFinite(value.analysisVersion)) return null;
     if (typeof value.savedAt !== 'string') return null;
     if (value.snapshot !== null && !isObject(value.snapshot)) return null;
