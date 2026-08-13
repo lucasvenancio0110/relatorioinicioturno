@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  AssistedValidation,
   AuditIssue,
   ManualCounters,
   OperationalAttention,
   SectorSnapshot,
   Shift,
 } from '../domain/types';
+import { applyAssistedValidation, buildAssistedValidations, type AssistedValidationDecision } from '../engine/assistedValidation';
 import { applyAttentionDecision, type AttentionDecision } from '../engine/attentionResolution';
 import { auditSnapshot } from '../engine/audit';
 import { getConfirmationInstruction, getConflictContacts, getConflictQuestion } from '../engine/conflictGuidance';
@@ -18,6 +20,7 @@ import {
   readWorkspace,
   saveWorkspace,
 } from '../storage/workspaceStorage';
+import AssistedValidationCard from './AssistedValidationCard';
 import OperationalAttentionCard from './OperationalAttentionCard';
 import ReportEditor from './ReportEditor';
 
@@ -147,10 +150,13 @@ export default function App() {
   const [manualExpanded, setManualExpanded] = useState(false);
   const [analyzedRaw, setAnalyzedRaw] = useState(() => restoredWorkspace?.analyzedRaw ?? '');
   const [validatedAttentionIds, setValidatedAttentionIds] = useState<Set<string>>(() => new Set(restoredWorkspace?.validatedAttentionIds ?? []));
+  const [validatedInterpretationIds, setValidatedInterpretationIds] = useState<Set<string>>(() => new Set(restoredWorkspace?.validatedInterpretationIds ?? []));
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(() => restoredWorkspace?.savedAt ?? null);
   const resultRef = useRef<HTMLElement | null>(null);
 
   const audit = useMemo(() => (snapshot ? auditSnapshot(snapshot) : null), [snapshot]);
+  const assistedValidations = useMemo(() => (snapshot ? buildAssistedValidations(snapshot) : []), [snapshot]);
+  const unresolvedValidations = assistedValidations.filter((item) => !validatedInterpretationIds.has(item.id));
   const fullReport = useMemo(() => (snapshot ? generateFullReport(snapshot, counters) : ''), [snapshot, counters]);
   const compactReport = useMemo(() => (snapshot ? generateCompactReport(snapshot) : ''), [snapshot]);
   const rawLineCount = raw.trim() ? raw.trim().split('\n').length : 0;
@@ -158,7 +164,8 @@ export default function App() {
   const filledCounters = Object.values(counters).filter((value) => value > 0).length;
   const unresolvedAttentions = audit?.attentions.filter((attention) => !validatedAttentionIds.has(attention.id)) || [];
   const resolvedAttentions = audit?.attentions.filter((attention) => validatedAttentionIds.has(attention.id)) || [];
-  const pendingAttentionCount = (audit?.issues.length || 0) + unresolvedAttentions.length;
+  const pendingAttentionCount = (audit?.issues.length || 0) + unresolvedAttentions.length + unresolvedValidations.length;
+  const hasValidationRisk = Boolean((audit?.review || 0) + unresolvedValidations.length);
 
   useEffect(() => {
     const persist = () => saveWorkspace({
@@ -169,6 +176,7 @@ export default function App() {
       snapshot,
       counters,
       validatedAttentionIds: [...validatedAttentionIds],
+      validatedInterpretationIds: [...validatedInterpretationIds],
       analysisVersion,
     });
 
@@ -187,13 +195,14 @@ export default function App() {
       window.clearTimeout(timer);
       window.removeEventListener('pagehide', persistImmediately);
     };
-  }, [raw, analyzedRaw, shift, selectedNextShift, snapshot, counters, validatedAttentionIds, analysisVersion]);
+  }, [raw, analyzedRaw, shift, selectedNextShift, snapshot, counters, validatedAttentionIds, validatedInterpretationIds, analysisVersion]);
 
   const analyzeForRoute = (currentShift: Shift, nextShift: Shift, shouldScroll = true) => {
     if (!raw.trim()) return;
     const parsed = parseSector(raw, currentShift, nextShift);
     setSnapshot(parsed);
     setValidatedAttentionIds(new Set());
+    setValidatedInterpretationIds(new Set());
     setAnalyzedRaw(raw);
     setInputExpanded(false);
     setAnalysisVersion((version) => version + 1);
@@ -228,6 +237,7 @@ export default function App() {
     setSnapshot(null);
     setCounters(initialCounters);
     setValidatedAttentionIds(new Set());
+    setValidatedInterpretationIds(new Set());
     setInputExpanded(true);
     setManualExpanded(false);
     setLastSavedAt(null);
@@ -255,11 +265,25 @@ export default function App() {
     });
   };
 
+  const resolveInterpretation = (validationId: string) => {
+    setValidatedInterpretationIds((current) => {
+      const next = new Set(current);
+      next.add(validationId);
+      return next;
+    });
+  };
+
   const applyOperationalAttentionDecision = (attention: OperationalAttention, decision: AttentionDecision) => {
     setSnapshot((current) => current ? applyAttentionDecision(current, attention, decision) : current);
     if (decision.selectedContextKeys.length > 1) validateAttention(attention.id);
     else reopenAttention(attention.id);
   };
+
+  const applyInterpretationDecision = (validation: AssistedValidation, decision: AssistedValidationDecision) => {
+    setSnapshot((current) => current ? applyAssistedValidation(current, validation, decision) : current);
+  };
+
+  const showValidationPanel = Boolean(unresolvedValidations.length || audit?.attentionCount);
 
   return (
     <main className="app-shell">
@@ -271,7 +295,7 @@ export default function App() {
             <h1>Início de turno</h1>
           </div>
         </div>
-        <span className="product-chip">{lastSavedAt ? 'Salvo ✓' : 'V2.7'}</span>
+        <span className="product-chip">{lastSavedAt ? 'Salvo ✓' : 'V3'}</span>
       </header>
 
       <section className="command-panel">
@@ -337,12 +361,12 @@ export default function App() {
 
       {snapshot && audit && (
         <section className="analysis-stack" ref={resultRef}>
-          <section className={`overview-panel ${audit.review ? 'has-risk' : ''}`}>
+          <section className={`overview-panel ${hasValidationRisk ? 'has-risk' : ''}`}>
             <div className="overview-status">
-              <span className={audit.review ? 'overview-icon warning' : 'overview-icon'}>{audit.review ? '!' : '✓'}</span>
+              <span className={hasValidationRisk ? 'overview-icon warning' : 'overview-icon'}>{hasValidationRisk ? '!' : '✓'}</span>
               <div>
                 <span>Consolidado {snapshot.currentShift}º → {snapshot.nextShift}º</span>
-                <strong>{audit.review ? `${audit.review} confirmação(ões) necessária(s)` : pendingAttentionCount ? `${pendingAttentionCount} decisão(ões) operacional(is)` : 'Motor íntegro'}</strong>
+                <strong>{audit.review ? `${audit.review} conflito(s)/revisão(ões)` : unresolvedValidations.length ? `${unresolvedValidations.length} informação(ões) para confirmar` : pendingAttentionCount ? `${pendingAttentionCount} decisão(ões) operacional(is)` : 'Motor íntegro'}</strong>
               </div>
             </div>
             <div className="overview-metrics">
@@ -352,52 +376,71 @@ export default function App() {
             </div>
           </section>
 
-          {audit.attentionCount > 0 && (
-            <section className="attention-panel" aria-label="Atenções e conflitos do setor">
-              <div className="attention-panel-head compact-attention-panel-head">
-                <div>
-                  <span className="attention-kicker">LEITURA CRUZADA</span>
-                  <h2>Atenções do setor</h2>
-                  <p>Decida onde cada máquina deve permanecer. A escolha atualiza o consolidado e os relatórios.</p>
-                </div>
-                <div className="attention-totals">
-                  <span><strong>{audit.issues.length}</strong> confirmar</span>
-                  <span><strong>{unresolvedAttentions.length}</strong> decidir</span>
-                  {resolvedAttentions.length > 0 && <span className="resolved-total"><strong>{resolvedAttentions.length}</strong> resolvida(s)</span>}
+          {showValidationPanel && (
+            <section className="attention-panel validation-panel" aria-label="Validação do setor">
+              <div className="validation-panel-head">
+                <div><span>VALIDAÇÃO</span><h2>Validação do setor</h2></div>
+                <div className="validation-summary-chips">
+                  {unresolvedValidations.length > 0 && <span className="confirm-chip"><strong>{unresolvedValidations.length}</strong> confirmar</span>}
+                  {audit.issues.length > 0 && <span className="conflict-chip"><strong>{audit.issues.length}</strong> conflito/revisão</span>}
+                  {unresolvedAttentions.length > 0 && <span><strong>{unresolvedAttentions.length}</strong> sobreposição</span>}
                 </div>
               </div>
-              <div className="attention-list">
-                {audit.issues.map((issue) => <ConflictCard key={issue.id} issue={issue} snapshot={snapshot} />)}
-                {unresolvedAttentions.map((attention) => (
-                  <OperationalAttentionCard
-                    key={attention.id}
-                    attention={attention}
-                    snapshot={snapshot}
-                    resolved={false}
-                    onApply={(decision) => applyOperationalAttentionDecision(attention, decision)}
-                    onValidate={() => validateAttention(attention.id)}
-                    onReopen={() => reopenAttention(attention.id)}
-                  />
-                ))}
-                {resolvedAttentions.map((attention) => (
-                  <OperationalAttentionCard
-                    key={attention.id}
-                    attention={attention}
-                    snapshot={snapshot}
-                    resolved
-                    onApply={(decision) => applyOperationalAttentionDecision(attention, decision)}
-                    onValidate={() => validateAttention(attention.id)}
-                    onReopen={() => reopenAttention(attention.id)}
-                  />
-                ))}
-              </div>
+
+              {unresolvedValidations.length > 0 && (
+                <div className="validation-group assisted-group">
+                  <div className="validation-group-title"><strong>Confirmar informações</strong><span>O motor já interpretou; falta só fechar algum dado.</span></div>
+                  <div className="assist-list">
+                    {unresolvedValidations.map((validation) => (
+                      <AssistedValidationCard
+                        key={validation.id}
+                        validation={validation}
+                        snapshot={snapshot}
+                        onApply={(decision) => applyInterpretationDecision(validation, decision)}
+                        onResolve={() => resolveInterpretation(validation.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {audit.attentionCount > 0 && (
+                <div className="validation-group cross-reading-group">
+                  <div className="validation-group-title"><strong>Conflitos e sobreposições</strong><span>Mesma informação em contextos diferentes ou dados incompatíveis.</span></div>
+                  <div className="attention-list">
+                    {audit.issues.map((issue) => <ConflictCard key={issue.id} issue={issue} snapshot={snapshot} />)}
+                    {unresolvedAttentions.map((attention) => (
+                      <OperationalAttentionCard
+                        key={attention.id}
+                        attention={attention}
+                        snapshot={snapshot}
+                        resolved={false}
+                        onApply={(decision) => applyOperationalAttentionDecision(attention, decision)}
+                        onValidate={() => validateAttention(attention.id)}
+                        onReopen={() => reopenAttention(attention.id)}
+                      />
+                    ))}
+                    {resolvedAttentions.map((attention) => (
+                      <OperationalAttentionCard
+                        key={attention.id}
+                        attention={attention}
+                        snapshot={snapshot}
+                        resolved
+                        onApply={(decision) => applyOperationalAttentionDecision(attention, decision)}
+                        onValidate={() => validateAttention(attention.id)}
+                        onReopen={() => reopenAttention(attention.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
           )}
 
           <section className="panel situation-panel">
             <div className="panel-head compact-head">
               <div><span className="step-index">02</span><div><h3>Situação do setor</h3><small>Leitura rápida do início do turno</small></div></div>
-              <span className={audit.review ? 'risk-label' : 'success-label'}>{audit.review ? 'Com pendências' : 'Consolidado'}</span>
+              <span className={hasValidationRisk ? 'risk-label' : 'success-label'}>{hasValidationRisk ? 'Confirmar dados' : 'Consolidado'}</span>
             </div>
             <div className="situation-compact-grid">
               <div><span>Manutenção parada</span><strong>{snapshot.maintenanceStopped.length}</strong></div>
