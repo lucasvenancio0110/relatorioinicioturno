@@ -104,6 +104,32 @@ export interface OperationalAttention {
   sourceIds: string[];
 }
 
+export type AssistedValidationKind =
+  | 'setup-severity'
+  | 'setup-state'
+  | 'setup-time'
+  | 'maintenance-detail'
+  | 'adjustment-detail'
+  | 'development-detail'
+  | 'absence-type'
+  | 'na-with-data';
+
+export interface AssistedValidation {
+  id: string;
+  kind: AssistedValidationKind;
+  severity: 'warning' | 'info';
+  title: string;
+  message: string;
+  question: string;
+  interpretedAs: string;
+  missingFields: string[];
+  sourceId: string;
+  sourceLine: string;
+  section: SectionKey;
+  tnl?: string;
+  person?: string;
+}
+
 export interface AuditSummary {
   messages: number;
   lines: number;
