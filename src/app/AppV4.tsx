@@ -1,0 +1,111 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { MotionConfig } from 'motion/react';
+import { Activity, ArrowRight, ChevronDown, ChevronUp, CircleGauge, FileText, ListChecks, PencilLine, RefreshCw, Save, Settings2, SlidersHorizontal, Trash2, Wrench } from 'lucide-react';
+import type { AssistedValidation, ManualCounters, OperationalAttention, SectorSnapshot, Shift } from '../domain/types';
+import { applyAssistedValidation, buildAssistedValidations, type AssistedValidationDecision } from '../engine/assistedValidation';
+import { applyAttentionDecision, type AttentionDecision } from '../engine/attentionResolution';
+import { auditSnapshot } from '../engine/audit';
+import { parseSector } from '../engine/parser';
+import { generateCompactReport, generateFullReport } from '../engine/reports';
+import { demoInput } from '../features/demo';
+import { clearReportWorkspace, clearWorkspace, readWorkspace, saveWorkspace } from '../storage/workspaceStorage';
+import ReportEditor from './ReportEditor';
+import ValidationHub from './ValidationHub';
+
+const initialCounters: ManualCounters = { checkpoint: 0, cqMachining: 0, cqClosing: 0, cqReinspection: 0, selectionShift1: 0, selectionShift2: 0, selectionShift3: 0, selectionAll: 0, selectionTnc: 0 };
+const counterGroups: Array<{ title: string; items: Array<[keyof ManualCounters, string]> }> = [
+  { title: 'Qualidade e bancada', items: [['checkpoint', 'Check Point'], ['cqMachining', 'CQ Usinagem'], ['cqClosing', 'CQ Fechamento'], ['cqReinspection', 'CQ Reinspeção']] },
+  { title: 'Ordens para seleção', items: [['selectionShift1', 'Seleção 1ºT'], ['selectionShift2', 'Seleção 2ºT'], ['selectionShift3', 'Seleção 3ºT'], ['selectionAll', 'Os 3 turnos'], ['selectionTnc', 'Seleção TNC']] },
+];
+const nextShiftFor = (shift: Shift): Shift => (shift === 3 ? 1 : ((shift + 1) as Shift));
+const restoredWorkspace = readWorkspace();
+
+function ShiftButtons({ value, disabledValue, onChange }: { value: Shift; disabledValue?: Shift; onChange: (shift: Shift) => void }) {
+  return <div className="shift-buttons">{[1, 2, 3].map((item) => <button key={item} type="button" disabled={disabledValue === item} className={value === item ? 'active' : ''} onClick={() => onChange(item as Shift)}>{item}º</button>)}</div>;
+}
+
+function CounterRow({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return <div className="counter-row"><div><span>{label}</span><strong>{value || 'N/A'}</strong></div><div className="counter-actions"><button type="button" aria-label={`Diminuir ${label}`} onClick={() => onChange(Math.max(0, value - 1))}>−</button><button type="button" aria-label={`Aumentar ${label}`} onClick={() => onChange(value + 1)}>+</button></div></div>;
+}
+
+export default function AppV4() {
+  const [raw, setRaw] = useState(() => restoredWorkspace?.raw ?? '');
+  const [shift, setShift] = useState<Shift>(() => restoredWorkspace?.shift ?? 2);
+  const [selectedNextShift, setSelectedNextShift] = useState<Shift>(() => restoredWorkspace?.selectedNextShift ?? 3);
+  const [snapshot, setSnapshot] = useState<SectorSnapshot | null>(() => restoredWorkspace?.snapshot ?? null);
+  const [counters, setCounters] = useState<ManualCounters>(() => restoredWorkspace?.counters ?? initialCounters);
+  const [analysisVersion, setAnalysisVersion] = useState(() => restoredWorkspace?.analysisVersion ?? 0);
+  const [inputExpanded, setInputExpanded] = useState(() => !restoredWorkspace?.snapshot);
+  const [manualExpanded, setManualExpanded] = useState(false);
+  const [reportExpanded, setReportExpanded] = useState(false);
+  const [analyzedRaw, setAnalyzedRaw] = useState(() => restoredWorkspace?.analyzedRaw ?? '');
+  const [validatedAttentionIds, setValidatedAttentionIds] = useState<Set<string>>(() => new Set(restoredWorkspace?.validatedAttentionIds ?? []));
+  const [validatedInterpretationIds, setValidatedInterpretationIds] = useState<Set<string>>(() => new Set(restoredWorkspace?.validatedInterpretationIds ?? []));
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(() => restoredWorkspace?.savedAt ?? null);
+  const resultRef = useRef<HTMLElement | null>(null);
+  const validationRef = useRef<HTMLDivElement | null>(null);
+  const situationRef = useRef<HTMLElement | null>(null);
+  const manualRef = useRef<HTMLElement | null>(null);
+  const reportRef = useRef<HTMLElement | null>(null);
+
+  const audit = useMemo(() => snapshot ? auditSnapshot(snapshot) : null, [snapshot]);
+  const assistedValidations = useMemo(() => snapshot ? buildAssistedValidations(snapshot) : [], [snapshot]);
+  const unresolvedValidations = assistedValidations.filter((item) => !validatedInterpretationIds.has(item.id));
+  const fullReport = useMemo(() => snapshot ? generateFullReport(snapshot, counters) : '', [snapshot, counters]);
+  const compactReport = useMemo(() => snapshot ? generateCompactReport(snapshot) : '', [snapshot]);
+  const rawLineCount = raw.trim() ? raw.trim().split('\n').length : 0;
+  const inputDirty = Boolean(snapshot && raw !== analyzedRaw);
+  const filledCounters = Object.values(counters).filter((value) => value > 0).length;
+  const unresolvedAttentions = audit?.attentions.filter((attention) => !validatedAttentionIds.has(attention.id)) || [];
+  const resolvedAttentions = audit?.attentions.filter((attention) => validatedAttentionIds.has(attention.id)) || [];
+  const pendingAttentionCount = (audit?.issues.length || 0) + unresolvedAttentions.length + unresolvedValidations.length;
+  const hasValidationRisk = Boolean((audit?.review || 0) + unresolvedValidations.length);
+
+  useEffect(() => {
+    const persist = () => saveWorkspace({ raw, analyzedRaw, shift, selectedNextShift, snapshot, counters, validatedAttentionIds: [...validatedAttentionIds], validatedInterpretationIds: [...validatedInterpretationIds], analysisVersion });
+    const timer = window.setTimeout(() => { const savedAt = persist(); if (savedAt) setLastSavedAt(savedAt); }, 120);
+    const persistImmediately = () => { const savedAt = persist(); if (savedAt) setLastSavedAt(savedAt); };
+    window.addEventListener('pagehide', persistImmediately);
+    return () => { window.clearTimeout(timer); window.removeEventListener('pagehide', persistImmediately); };
+  }, [raw, analyzedRaw, shift, selectedNextShift, snapshot, counters, validatedAttentionIds, validatedInterpretationIds, analysisVersion]);
+
+  const analyzeForRoute = (currentShift: Shift, nextShift: Shift, shouldScroll = true) => {
+    if (!raw.trim()) return;
+    setSnapshot(parseSector(raw, currentShift, nextShift));
+    setValidatedAttentionIds(new Set());
+    setValidatedInterpretationIds(new Set());
+    setAnalyzedRaw(raw);
+    setInputExpanded(false);
+    setAnalysisVersion((version) => version + 1);
+    if (shouldScroll) window.setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  };
+  const analyze = () => analyzeForRoute(shift, selectedNextShift);
+  const selectCurrentShift = (selectedShift: Shift) => { let next = selectedNextShift; if (selectedShift === next) { next = nextShiftFor(selectedShift); setSelectedNextShift(next); } setShift(selectedShift); if (raw.trim() && snapshot) analyzeForRoute(selectedShift, next, false); };
+  const selectNextShift = (selectedShift: Shift) => { if (selectedShift === shift) return; setSelectedNextShift(selectedShift); if (raw.trim() && snapshot) analyzeForRoute(shift, selectedShift, false); };
+  const clearInput = () => { clearWorkspace(); clearReportWorkspace(); setRaw(''); setAnalyzedRaw(''); setSnapshot(null); setCounters(initialCounters); setValidatedAttentionIds(new Set()); setValidatedInterpretationIds(new Set()); setInputExpanded(true); setManualExpanded(false); setReportExpanded(false); setLastSavedAt(null); setAnalysisVersion((version) => version + 1); };
+  const validateAttention = (id: string) => setValidatedAttentionIds((current) => new Set(current).add(id));
+  const reopenAttention = (id: string) => setValidatedAttentionIds((current) => { const next = new Set(current); next.delete(id); return next; });
+  const resolveInterpretation = (id: string) => setValidatedInterpretationIds((current) => new Set(current).add(id));
+  const applyOperationalAttentionDecision = (attention: OperationalAttention, decision: AttentionDecision) => { setSnapshot((current) => current ? applyAttentionDecision(current, attention, decision) : current); if (decision.selectedContextKeys.length > 1) validateAttention(attention.id); else reopenAttention(attention.id); };
+  const applyInterpretationDecision = (validation: AssistedValidation, decision: AssistedValidationDecision) => setSnapshot((current) => current ? applyAssistedValidation(current, validation, decision) : current);
+  const showValidationPanel = Boolean(unresolvedValidations.length || audit?.issues.length || unresolvedAttentions.length || resolvedAttentions.length);
+  const scrollTo = (target: HTMLElement | null) => target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const openManual = () => { setManualExpanded(true); window.setTimeout(() => scrollTo(manualRef.current), 40); };
+  const openReport = () => { setReportExpanded(true); window.setTimeout(() => scrollTo(reportRef.current), 40); };
+
+  return <MotionConfig reducedMotion="user"><main className="app-shell v4-shell">
+    <header className="topbar v4-topbar"><div className="brand-lockup"><div className="brand-mark">R</div><div><span className="eyebrow">RELATÓRIO INICIAL</span><h1>Início de turno</h1></div></div><span className="product-chip v4-save-chip">{lastSavedAt ? <><Save size={14}/> Salvo</> : 'V4'}</span></header>
+    <section className="command-panel v4-route-card"><div className="command-copy"><span>PASSAGEM</span><strong>{shift}º <ArrowRight size={18}/> {selectedNextShift}º</strong><small>{lastSavedAt ? 'Rascunho local protegido' : 'Defina a rota antes da análise'}</small></div><div className="route-selectors"><div className="route-selector"><label>Atual</label><ShiftButtons value={shift} disabledValue={selectedNextShift} onChange={selectCurrentShift}/></div><span className="route-arrow"><ArrowRight size={18}/></span><div className="route-selector"><label>Próximo</label><ShiftButtons value={selectedNextShift} disabledValue={shift} onChange={selectNextShift}/></div></div></section>
+    <section className="panel intake-panel v4-intake"><div className="panel-head compact-head"><div><span className="step-index">01</span><div><h3>Entrada</h3><small>{snapshot ? 'Consolidado a partir das mensagens dos preparadores' : 'Cole as mensagens do WhatsApp'}</small></div></div><div className="head-actions">{raw && <button className="icon-text-action muted-action" type="button" onClick={clearInput}><Trash2 size={15}/> Limpar</button>}{!snapshot && <button className="text-action" type="button" onClick={() => setRaw(demoInput)}>Demonstração</button>}</div></div>
+      {snapshot && !inputExpanded && audit ? <div className="input-summary v4-input-summary"><div className="input-summary-stats"><span><strong>{audit.messages}</strong><small>mensagens</small></span><span><strong>{audit.lines}</strong><small>linhas</small></span><span><strong>{audit.sourceMachines}</strong><small>TNLs</small></span></div><div className="input-summary-actions"><button type="button" className="secondary-button compact-button" onClick={() => setInputExpanded(true)}><PencilLine size={15}/> Editar</button><button type="button" className="primary-button compact-button" onClick={analyze}><RefreshCw size={15}/> Reanalisar</button></div></div> : <><textarea value={raw} onChange={(event) => { setRaw(event.target.value); if (snapshot) setInputExpanded(true); }} placeholder="Cole aqui todas as mensagens copiadas do WhatsApp..." aria-label="Mensagens dos preparadores"/><div className="intake-footer"><div className="intake-status"><span className={rawLineCount ? 'live-dot active' : 'live-dot'}/><span>{inputDirty ? 'Entrada alterada · reanálise necessária' : rawLineCount ? `${rawLineCount} linhas capturadas` : 'Aguardando mensagens'}</span></div><button className="primary-button" type="button" onClick={analyze} disabled={!raw.trim()}>{snapshot ? 'Reanalisar' : 'Analisar setor'} <ArrowRight size={16}/></button></div></>}
+    </section>
+    {snapshot && audit && <section className="analysis-stack v4-analysis" ref={resultRef}>
+      <section className={`overview-panel v4-overview ${hasValidationRisk ? 'has-risk' : ''}`}><div className="overview-status"><span className={hasValidationRisk ? 'overview-icon warning' : 'overview-icon'}>{hasValidationRisk ? '!' : '✓'}</span><div><span>{snapshot.currentShift}º → {snapshot.nextShift}º</span><strong>{pendingAttentionCount ? `${pendingAttentionCount} item(ns) para revisar` : 'Tudo certo para o relatório'}</strong></div></div><div className="overview-metrics"><div><span>TNLs</span><strong>{audit.machines}</strong></div><div><span>Cobertura</span><strong>{audit.confidence}%</strong></div><div className={pendingAttentionCount ? 'attention-metric active' : 'attention-metric'}><span>Pendentes</span><strong>{pendingAttentionCount}</strong></div></div></section>
+      <nav className="workspace-nav" aria-label="Navegação do relatório">{showValidationPanel && <button type="button" onClick={() => scrollTo(validationRef.current)}><Activity size={16}/><span>Validar</span>{pendingAttentionCount > 0 && <b>{pendingAttentionCount}</b>}</button>}<button type="button" onClick={() => scrollTo(situationRef.current)}><CircleGauge size={16}/><span>Situação</span></button><button type="button" onClick={openManual}><SlidersHorizontal size={16}/><span>Dados</span></button><button type="button" onClick={openReport}><FileText size={16}/><span>Relatório</span></button></nav>
+      {showValidationPanel && <div ref={validationRef} className="section-anchor"><ValidationHub snapshot={snapshot} validations={unresolvedValidations} issues={audit.issues} attentions={unresolvedAttentions} resolvedCount={resolvedAttentions.length + (assistedValidations.length - unresolvedValidations.length)} onApplyValidation={applyInterpretationDecision} onResolveValidation={resolveInterpretation} onApplyAttention={applyOperationalAttentionDecision} onValidateAttention={validateAttention} onReopenAttention={reopenAttention}/></div>}
+      <section className="panel situation-panel v4-situation" ref={situationRef}><div className="panel-head compact-head"><div><span className="step-index">02</span><div><h3>Situação</h3><small>Resumo operacional do setor</small></div></div><span className={hasValidationRisk ? 'risk-label' : 'success-label'}>{hasValidationRisk ? 'Revisar' : 'Consolidado'}</span></div><div className="situation-compact-grid v4-metric-grid"><div><Wrench size={16}/><span>Manutenção</span><strong>{snapshot.maintenanceStopped.length}</strong></div><div><Settings2 size={16}/><span>Setup atual</span><strong>{snapshot.setups.length}</strong></div><div><RefreshCw size={16}/><span>Próximos</span><strong>{snapshot.upcomingSetups.length}</strong></div><div><ArrowRight size={16}/><span>{snapshot.nextShift}º turno</span><strong>{snapshot.nextShiftSetups.length}</strong></div><div><SlidersHorizontal size={16}/><span>Ajustes</span><strong>{snapshot.adjustments.length}</strong></div><div><ListChecks size={16}/><span>Seleções</span><strong>{snapshot.selections.length}</strong></div></div></section>
+      <section className="panel manual-panel v4-manual" ref={manualRef}><button className="manual-panel-toggle" type="button" onClick={() => setManualExpanded((value) => !value)} aria-expanded={manualExpanded}><div><span className="step-index">03</span><div><h3>Dados manuais</h3><small>{filledCounters ? `${filledCounters} campo(s) preenchido(s)` : 'Nenhum dado manual preenchido'}</small></div></div><span>{manualExpanded ? <><ChevronUp size={16}/> Recolher</> : <><ChevronDown size={16}/> Preencher</>}</span></button>{manualExpanded && <div className="manual-groups">{counterGroups.map((group) => <div className="manual-group" key={group.title}><h4>{group.title}</h4><div className="counter-list">{group.items.map(([key, label]) => <CounterRow key={key} label={label} value={counters[key]} onChange={(value) => setCounters((current) => ({ ...current, [key]: value }))}/>)}</div></div>)}</div>}</section>
+      <section className="panel report-panel v4-report" ref={reportRef}><button type="button" className="report-panel-toggle" onClick={() => setReportExpanded((value) => !value)} aria-expanded={reportExpanded}><div><span className="step-index">04</span><div><h3>Relatório</h3><small>Completo + resumido prontos para revisão</small></div></div><span>{reportExpanded ? <><ChevronUp size={16}/> Recolher</> : <><FileText size={16}/> Abrir</>}</span></button><div className={reportExpanded ? 'report-editor-stage open' : 'report-editor-stage closed'} aria-hidden={!reportExpanded}><ReportEditor key={analysisVersion} fullReport={fullReport} compactReport={compactReport} persistenceRevision={analysisVersion}/></div></section>
+    </section>}
+  </main></MotionConfig>;
+}

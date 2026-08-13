@@ -10,6 +10,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "lucide-react": "latest",
+    "motion": "latest",
+    "radix-ui": "latest",
     "react": "latest",
     "react-dom": "latest"
   },
