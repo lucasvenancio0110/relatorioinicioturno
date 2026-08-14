@@ -10,6 +10,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "latest",
     "lucide-react": "latest",
     "motion": "latest",
     "radix-ui": "latest",
