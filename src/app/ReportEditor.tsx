@@ -27,6 +27,7 @@ interface BlockCardProps {
   index: number;
   total: number;
   editing: boolean;
+  editMode: boolean;
   linked: boolean;
   onEdit: () => void;
   onDone: () => void;
@@ -61,7 +62,7 @@ export function replaceReportBlockBody(block: ReportDocumentBlock, body: string)
   return { ...block, lines: [...headings, ...(bodyLines.length ? bodyLines : [createReportLine('', false)])] };
 }
 
-function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onChange, onDelete, onMove }: BlockCardProps) {
+function BlockCard({ block, index, total, editing, editMode, linked, onEdit, onDone, onChange, onDelete, onMove }: BlockCardProps) {
   const [draft, setDraft] = useState(() => reportBlockBody(block));
   const headingCount = reportBlockHeadingCount(block);
   const headingLines = block.lines.slice(0, headingCount);
@@ -74,8 +75,8 @@ function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onCha
 
   if (!editing) {
     return (
-      <article className={`report-preview-block editable-report-block${empty ? ' empty-report-block' : ''}`}>
-        <button className="block-edit-trigger" type="button" onClick={onEdit} aria-label={`Editar bloco ${index + 1}`}><PencilLine size={15}/></button>
+      <article className={`report-preview-block editable-report-block${empty ? ' empty-report-block' : ''}${editMode ? ' edit-mode-visible' : ''}`}>
+        {editMode && <button className="block-edit-trigger" type="button" onClick={onEdit} aria-label={`Editar bloco ${index + 1}`}><PencilLine size={15}/></button>}
         {block.lines.map((line) => (
           <div className={line.bold ? 'report-preview-line heading' : 'report-preview-line'} key={line.id}>
             {line.text || '\u00A0'}
@@ -94,7 +95,7 @@ function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onCha
     <article className="report-preview-block report-block-editing block-editor-v5">
       <div className="block-editor-v5-head">
         <div>
-          <span>EDITANDO BLOCO</span>
+          <span>EDITANDO</span>
           <strong>{headingLines.map((line) => line.text).join(' · ') || `Bloco ${index + 1}`}</strong>
           {linked && <small>Sincronizado com a outra versão</small>}
         </div>
@@ -107,7 +108,7 @@ function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onCha
           autoFocus
           value={draft}
           rows={Math.max(4, Math.min(12, draft.split('\n').length + 2))}
-          placeholder="Digite ou cole todo o conteúdo deste bloco. Use Enter para criar novas linhas."
+          placeholder="Digite ou cole o conteúdo deste bloco."
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -118,7 +119,7 @@ function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onCha
           }}
           aria-label={`Conteúdo do bloco ${index + 1}`}
         />
-        <small>Enter cria linhas · Ctrl/⌘ + Enter salva · Esc cancela</small>
+        <small>Ctrl/⌘ + Enter salva · Esc cancela</small>
       </label>
 
       <div className="block-editor-v5-actions">
@@ -127,7 +128,7 @@ function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onCha
           <button type="button" onClick={() => onMove(1)} disabled={index === total - 1} aria-label="Mover bloco para baixo"><ArrowDown size={15}/></button>
           <button type="button" className="danger-mini" onClick={onDelete}><Trash2 size={15}/> Excluir</button>
         </div>
-        <button type="button" className="done-mini primary-save-v5" onClick={save}><Check size={16}/> Salvar bloco</button>
+        <button type="button" className="done-mini primary-save-v5" onClick={save}><Check size={16}/> Salvar</button>
       </div>
     </article>
   );
@@ -142,6 +143,7 @@ export default function ReportEditor({ fullReport, compactReport, persistenceRev
   const [compactDirty, setCompactDirty] = useState(() => restored?.compactDirty ?? false);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editingSharedKey, setEditingSharedKey] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
   const [copied, setCopied] = useState<'active' | 'both' | null>(null);
 
   useEffect(() => {
@@ -172,9 +174,10 @@ export default function ReportEditor({ fullReport, compactReport, persistenceRev
     else { setCompactBlocks(restoredDocument); setCompactDirty(false); }
     setEditingBlockId(null);
     setEditingSharedKey(null);
+    setEditMode(false);
   };
 
-  const beginEdit = (block: ReportDocumentBlock) => { setEditingBlockId(block.id); setEditingSharedKey(getSharedReportBlockKey(block)); };
+  const beginEdit = (block: ReportDocumentBlock) => { setEditMode(true); setEditingBlockId(block.id); setEditingSharedKey(getSharedReportBlockKey(block)); };
   const finishEdit = () => { setEditingBlockId(null); setEditingSharedKey(null); };
 
   const changeBlock = (blockId: string, nextBlock: ReportDocumentBlock) => {
@@ -205,6 +208,7 @@ export default function ReportEditor({ fullReport, compactReport, persistenceRev
   const addBlock = () => {
     const block = createReportBlock();
     replaceActiveOnly([...activeBlocks, block]);
+    setEditMode(true);
     setEditingBlockId(block.id);
     setEditingSharedKey(null);
     window.setTimeout(() => document.getElementById(`report-block-${block.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
@@ -219,38 +223,39 @@ export default function ReportEditor({ fullReport, compactReport, persistenceRev
     window.setTimeout(() => setCopied(null), 1500);
   };
 
-  const selectTab = (nextTab: string) => { setTab(nextTab as ReportTab); finishEdit(); };
+  const selectTab = (nextTab: string) => { setTab(nextTab as ReportTab); finishEdit(); setEditMode(false); };
+  const toggleEditMode = () => { finishEdit(); setEditMode((current) => !current); };
 
   return (
-    <div className="report-workspace v5-report-workspace">
-      <Tabs.Root className="report-tabs-root" value={tab} onValueChange={selectTab}>
-        <Tabs.List className="report-tabs" aria-label="Versão do relatório">
-          <Tabs.Trigger value="full">Completo</Tabs.Trigger>
-          <Tabs.Trigger value="compact">Resumido</Tabs.Trigger>
-        </Tabs.List>
-      </Tabs.Root>
+    <div className="report-workspace v5-report-workspace v8-report-workspace">
+      <div className="v8-report-topline">
+        <Tabs.Root className="report-tabs-root" value={tab} onValueChange={selectTab}>
+          <Tabs.List className="report-tabs" aria-label="Versão do relatório">
+            <Tabs.Trigger value="full">Completo</Tabs.Trigger>
+            <Tabs.Trigger value="compact">Resumido</Tabs.Trigger>
+          </Tabs.List>
+        </Tabs.Root>
 
-      <div className="report-editor-toolbar block-editor-heading">
-        <div className="report-version-state">
-          <div><strong>{activeLabel}</strong><small>Clique no lápis e edite o bloco inteiro.</small></div>
-          <span className={activeDirty ? 'edited-badge' : 'automatic-badge'}>{activeDirty ? 'Editado' : 'Automático'}</span>
+        <div className="v8-report-actions">
+          {activeDirty && <span className="edited-badge">Editado</span>}
+          {activeDirty && <button type="button" className="ghost-button v8-restore-button" onClick={restoreActive}><RotateCcw size={14}/> Restaurar</button>}
+          <button type="button" className={`v8-edit-mode-button${editMode ? ' active' : ''}`} onClick={toggleEditMode}>{editMode ? <><Check size={15}/> Concluir</> : <><PencilLine size={15}/> Editar</>}</button>
         </div>
-        {activeDirty && <button type="button" className="ghost-button" onClick={restoreActive}><RotateCcw size={14}/> Restaurar</button>}
       </div>
 
-      <div className="report-preview structured-report" aria-label={`Relatório ${activeLabel.toLowerCase()} editável por blocos`}>
+      <div className={`report-preview structured-report${editMode ? ' report-edit-mode' : ''}`} aria-label={`Relatório ${activeLabel.toLowerCase()} editável por blocos`}>
         {activeBlocks.map((block, index) => (
           <div id={`report-block-${block.id}`} key={block.id}>
-            <BlockCard block={block} index={index} total={activeBlocks.length} editing={editingBlockId === block.id} linked={Boolean(getSharedReportBlockKey(block) || (editingBlockId === block.id && editingSharedKey))} onEdit={() => beginEdit(block)} onDone={finishEdit} onChange={(nextBlock) => changeBlock(block.id, nextBlock)} onDelete={() => deleteBlock(block.id)} onMove={(direction) => moveBlock(block.id, direction)}/>
+            <BlockCard block={block} index={index} total={activeBlocks.length} editing={editingBlockId === block.id} editMode={editMode} linked={Boolean(getSharedReportBlockKey(block) || (editingBlockId === block.id && editingSharedKey))} onEdit={() => beginEdit(block)} onDone={finishEdit} onChange={(nextBlock) => changeBlock(block.id, nextBlock)} onDelete={() => deleteBlock(block.id)} onMove={(direction) => moveBlock(block.id, direction)}/>
           </div>
         ))}
-        <button className="add-block-button" type="button" onClick={addBlock}><Plus size={15}/> Adicionar bloco</button>
+        {editMode && <button className="add-block-button" type="button" onClick={addBlock}><Plus size={15}/> Adicionar bloco</button>}
       </div>
 
-      <div className="report-meta-row"><span>{activeDraft.split('\n').length} linhas</span><span>{activeDraft.length.toLocaleString('pt-BR')} caracteres</span></div>
+      {editMode && <div className="report-meta-row"><span>{activeDraft.split('\n').length} linhas</span><span>{activeDraft.length.toLocaleString('pt-BR')} caracteres</span></div>}
       <div className="report-copy-actions">
         <button className="primary-button" type="button" onClick={() => copyText('active')}><Copy size={16}/>{copied === 'active' ? 'Copiado ✓' : `Copiar ${activeLabel.toLowerCase()}`}</button>
-        <button className="secondary-button" type="button" onClick={() => copyText('both')}><Copy size={16}/>{copied === 'both' ? 'Os dois copiados ✓' : 'Copiar completo + resumido'}</button>
+        <button className="secondary-button" type="button" onClick={() => copyText('both')}><Copy size={16}/>{copied === 'both' ? 'Os dois copiados ✓' : 'Copiar os dois'}</button>
       </div>
     </div>
   );
