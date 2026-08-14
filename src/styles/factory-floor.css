@@ -1,0 +1,334 @@
+/* V6 — VENANC Industrial HMI
+   Chão de fábrica: alto contraste, toque grande, leitura instantânea e zero decoração desnecessária.
+   Esta folha é carregada por último e substitui somente apresentação/interação visual. */
+
+:root{
+  --hmi-bg:#070908;
+  --hmi-deep:#000;
+  --hmi-panel:#101412;
+  --hmi-panel-2:#171d1a;
+  --hmi-panel-3:#202824;
+  --hmi-line:#46504b;
+  --hmi-line-strong:#6b766f;
+  --hmi-text:#fff;
+  --hmi-muted:#bcc5c1;
+  --hmi-yellow:#ffd400;
+  --hmi-yellow-soft:#2b2500;
+  --hmi-green:#27d667;
+  --hmi-green-soft:#082b17;
+  --hmi-red:#ff453a;
+  --hmi-red-soft:#350806;
+  --hmi-orange:#ffae22;
+  --hmi-blue:#3aa8ff;
+  --hmi-blue-soft:#071f32;
+  --hmi-radius:8px;
+}
+
+html,body,#root{min-height:100%;background:var(--hmi-bg)!important}
+html{scroll-behavior:auto!important}
+body{
+  margin:0!important;
+  background:var(--hmi-bg)!important;
+  background-image:none!important;
+  color:var(--hmi-text)!important;
+  font-family:'Inter Variable',Arial,Roboto,'Segoe UI',sans-serif!important;
+  font-size:18px!important;
+  line-height:1.35!important;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+button,input,textarea,select{font:inherit!important}
+button{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+/* Performance visual: feedback imediato, sem blur, gradiente, sombra ou transição ornamental. */
+.v5-shell *,
+.decision-sheet *,
+.decision-sheet-overlay,
+.validation-hub *{
+  transition:none!important;
+  animation-duration:.01ms!important;
+  animation-iteration-count:1!important;
+}
+.v5-topbar,
+.v5-route-card,
+.v5-manual,
+.v5-intake,
+.v5-situation,
+.v5-report,
+.validation-hub,
+.v5-overview,
+.v5-workspace-nav,
+.decision-sheet,
+.structured-report,
+.report-preview-block,
+.input-summary,
+.assist-card,
+.attention-decision-card,
+.conflict-card{
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  background-image:none!important;
+}
+
+/* Estrutura */
+.v5-shell{width:min(1500px,calc(100% - 24px))!important;padding-bottom:64px!important}
+.v5-topbar{max-width:1500px!important;margin-inline:auto!important;background:var(--hmi-bg)!important;border-bottom:2px solid var(--hmi-line)!important;padding-block:12px!important}
+.v5-topbar h1{color:#fff!important;font-size:25px!important;line-height:1!important;font-weight:900!important;letter-spacing:0!important}
+.v5-topbar .eyebrow{color:var(--hmi-yellow)!important;font-size:12px!important;font-weight:900!important;letter-spacing:.12em!important}
+.brand-mark{width:48px!important;height:48px!important;border:0!important;border-radius:6px!important;background:var(--hmi-yellow)!important;color:#000!important;box-shadow:none!important;font-size:22px!important;font-weight:950!important}
+.product-chip,.v4-save-chip{min-height:42px!important;padding:0 14px!important;border:2px solid var(--hmi-green)!important;border-radius:6px!important;background:var(--hmi-green-soft)!important;color:var(--hmi-green)!important;font-size:14px!important;font-weight:900!important}
+
+/* Painéis */
+.panel,.v5-manual,.v5-intake,.v5-situation,.v5-report,.validation-hub{
+  background:var(--hmi-panel)!important;
+  color:#fff!important;
+  border:2px solid var(--hmi-line)!important;
+  border-radius:var(--hmi-radius)!important;
+}
+.panel-head h3,.manual-panel-toggle h3,.report-panel-toggle h3,.v5-situation h3,.validation-hub h2{color:#fff!important;font-size:21px!important;font-weight:900!important;letter-spacing:0!important}
+.panel-head small,.manual-panel-toggle small,.report-panel-toggle small,.v5-situation small{color:var(--hmi-muted)!important;font-size:14px!important;font-weight:650!important}
+.step-index{min-width:46px!important;width:46px!important;height:46px!important;display:grid!important;place-items:center!important;background:var(--hmi-yellow)!important;color:#000!important;border:0!important;border-radius:6px!important;font-size:17px!important;font-weight:950!important}
+
+/* Rota de turno */
+.v5-route-card,.v4-route-card{
+  margin-top:10px!important;
+  padding:16px!important;
+  background:#0b0e0c!important;
+  border:2px solid var(--hmi-line)!important;
+  border-left:7px solid var(--hmi-yellow)!important;
+  border-radius:var(--hmi-radius)!important;
+}
+.command-copy>span{color:var(--hmi-yellow)!important;font-size:13px!important;font-weight:950!important;letter-spacing:.1em!important}
+.command-copy>strong{color:#fff!important;font-size:28px!important;font-weight:950!important}
+.command-copy>small{color:var(--hmi-muted)!important;font-size:14px!important}
+.route-selector label{color:var(--hmi-muted)!important;font-size:14px!important;font-weight:850!important}
+.route-arrow{color:var(--hmi-yellow)!important}
+.shift-buttons{padding:5px!important;background:var(--hmi-panel-2)!important;border:2px solid var(--hmi-line)!important;border-radius:7px!important}
+.shift-buttons button{min-width:64px!important;min-height:60px!important;padding:0 16px!important;border:0!important;border-radius:5px!important;background:transparent!important;color:#fff!important;font-size:23px!important;font-weight:950!important}
+.shift-buttons button.active{background:var(--hmi-yellow)!important;color:#000!important}
+.shift-buttons button:disabled{opacity:.24!important}
+
+/* Dados manuais */
+.v5-manual .manual-panel-toggle,.v5-report .report-panel-toggle{min-height:76px!important;padding:12px 16px!important;background:var(--hmi-panel)!important;color:#fff!important}
+.v5-manual-groups{padding:14px!important;gap:18px!important}
+.v5-manual .manual-group h4{margin:4px 0 10px!important;color:var(--hmi-yellow)!important;font-size:14px!important;font-weight:950!important;letter-spacing:.08em!important;text-transform:uppercase!important}
+.v5-manual .counter-list{gap:9px!important}
+.v5-counter-row{min-height:76px!important;padding:8px 10px 8px 16px!important;background:var(--hmi-panel-2)!important;border:2px solid var(--hmi-line)!important;border-radius:7px!important}
+.v5-counter-row:focus-within{background:var(--hmi-panel-2)!important;border-color:var(--hmi-yellow)!important;box-shadow:none!important;outline:2px solid rgba(255,212,0,.24)!important}
+.v5-counter-row>label{grid-template-columns:minmax(0,1fr) 92px!important;gap:12px!important}
+.v5-counter-row>label>span{color:#fff!important;font-size:17px!important;font-weight:850!important}
+.v5-counter-row input{height:56px!important;padding:0 10px!important;background:#000!important;color:var(--hmi-yellow)!important;border:2px solid var(--hmi-line-strong)!important;border-radius:6px!important;font-size:25px!important;font-weight:950!important;text-align:center!important;box-shadow:none!important}
+.v5-counter-row input:focus{border-color:var(--hmi-yellow)!important;outline:2px solid rgba(255,212,0,.28)!important;box-shadow:none!important}
+.v5-counter-row input::placeholder{color:#7f8a84!important}
+.v5-counter-row .counter-actions{gap:8px!important;margin-left:10px!important}
+.v5-counter-row .counter-actions button{width:58px!important;height:58px!important;background:var(--hmi-panel-3)!important;color:#fff!important;border:2px solid var(--hmi-line-strong)!important;border-radius:6px!important;font-size:31px!important;font-weight:950!important}
+.v5-counter-row .counter-actions button:active{background:var(--hmi-yellow)!important;color:#000!important;border-color:var(--hmi-yellow)!important}
+.v5-clear-manual{min-height:48px!important;padding:0 14px!important;background:transparent!important;color:var(--hmi-muted)!important;border:2px solid var(--hmi-line)!important;border-radius:6px!important;font-size:14px!important;font-weight:800!important}
+.v5-clear-manual:active{background:var(--hmi-red-soft)!important;color:#fff!important;border-color:var(--hmi-red)!important}
+
+/* Entrada */
+.v5-intake{padding:16px!important}
+.v5-raw-input{min-height:330px!important;padding:16px!important;resize:vertical!important;background:#020302!important;color:#fff!important;border:2px solid var(--hmi-line)!important;border-radius:7px!important;box-shadow:none!important;font-family:Arial,Roboto,'Segoe UI',sans-serif!important;font-size:17px!important;line-height:1.58!important}
+.v5-raw-input::placeholder{color:#77817c!important}
+.v5-raw-input:focus{background:#000!important;border-color:var(--hmi-yellow)!important;outline:3px solid rgba(255,212,0,.22)!important;box-shadow:none!important}
+.intake-status{color:var(--hmi-muted)!important;font-size:14px!important;font-weight:750!important}
+.live-dot{background:#66716c!important}
+.live-dot.active{background:var(--hmi-green)!important;box-shadow:none!important}
+
+/* Botões */
+.primary-button,.secondary-button,.compact-button,.assist-confirm,.assist-secondary,.text-action,.icon-text-action,.report-copy-actions button,.add-block-button,.primary-save-v5{
+  min-height:60px!important;
+  padding:0 18px!important;
+  border-radius:6px!important;
+  box-shadow:none!important;
+  font-size:16px!important;
+  font-weight:950!important;
+}
+.primary-button,.assist-confirm{background:var(--hmi-yellow)!important;color:#000!important;border:2px solid var(--hmi-yellow)!important}
+.secondary-button,.compact-button,.text-action,.icon-text-action{background:var(--hmi-panel-2)!important;color:#fff!important;border:2px solid var(--hmi-line-strong)!important}
+.primary-button:active,.assist-confirm:active{background:#fff!important;color:#000!important;border-color:#fff!important}
+.secondary-button:active,.compact-button:active,.text-action:active,.icon-text-action:active{background:var(--hmi-yellow)!important;color:#000!important;border-color:var(--hmi-yellow)!important}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:4px solid var(--hmi-yellow)!important;outline-offset:2px!important}
+button:disabled{opacity:.34!important;cursor:not-allowed!important}
+
+/* Resumo da entrada */
+.input-summary,.v4-input-summary{padding:14px!important;background:#0b0e0c!important;border:2px solid var(--hmi-line)!important;border-radius:7px!important}
+.input-summary-stats span{min-height:66px!important;padding:8px 12px!important;background:var(--hmi-panel-2)!important;border:1px solid var(--hmi-line)!important;border-radius:6px!important}
+.input-summary-stats strong{color:#fff!important;font-size:27px!important;font-weight:950!important}
+.input-summary-stats small{color:var(--hmi-muted)!important;font-size:13px!important;font-weight:750!important}
+
+/* Overview */
+.v5-overview,.v4-overview{min-height:88px!important;padding:14px 16px!important;background:var(--hmi-panel)!important;border:2px solid var(--hmi-green)!important;border-radius:7px!important}
+.v5-overview.has-risk,.v4-overview.has-risk{border-color:var(--hmi-orange)!important}
+.overview-icon{background:var(--hmi-green)!important;color:#001407!important;box-shadow:none!important}
+.overview-icon.warning{background:var(--hmi-orange)!important;color:#1f1200!important}
+.overview-status span{color:var(--hmi-muted)!important;font-size:14px!important;font-weight:750!important}
+.overview-status strong{color:#fff!important;font-size:19px!important;font-weight:900!important}
+.overview-metrics span{color:var(--hmi-muted)!important;font-size:13px!important;font-weight:750!important}
+.overview-metrics strong{color:#fff!important;font-size:27px!important;font-weight:950!important}
+.attention-metric.active strong{color:var(--hmi-orange)!important}
+
+/* Navegação */
+.v5-workspace-nav,.workspace-nav{padding:6px!important;gap:7px!important;background:#050605!important;border:2px solid var(--hmi-line)!important;border-radius:7px!important;box-shadow:none!important}
+.v5-workspace-nav button,.workspace-nav button{min-height:58px!important;padding:0 16px!important;background:var(--hmi-panel-2)!important;color:#fff!important;border:2px solid transparent!important;border-radius:5px!important;font-size:15px!important;font-weight:850!important}
+.v5-workspace-nav button b,.workspace-nav button b{background:var(--hmi-red)!important;color:#fff!important}
+.v5-workspace-nav button:active,.workspace-nav button:active{background:var(--hmi-yellow)!important;color:#000!important}
+
+/* Situação */
+.v5-situation{padding:16px!important}
+.v5-metric-grid{gap:9px!important}
+.v5-metric-grid>div{min-height:82px!important;padding:12px 14px!important;background:var(--hmi-panel-2)!important;border:2px solid var(--hmi-line)!important;border-radius:7px!important}
+.v5-metric-grid svg{color:var(--hmi-yellow)!important}
+.v5-metric-grid span{color:var(--hmi-muted)!important;font-size:14px!important;font-weight:800!important}
+.v5-metric-grid strong{color:#fff!important;font-size:31px!important;font-weight:950!important}
+
+/* Validação */
+.validation-hub{padding:16px!important}
+.validation-hub-head{margin-bottom:12px!important}
+.section-kicker{color:var(--hmi-yellow)!important;font-size:12px!important;font-weight:950!important;letter-spacing:.12em!important}
+.validation-hub-head h2{font-size:23px!important;font-weight:950!important}
+.validation-count{min-width:58px!important;min-height:46px!important;border-radius:6px!important;border:2px solid var(--hmi-line)!important;font-size:19px!important}
+.validation-count.pending{background:var(--hmi-red-soft)!important;color:#fff!important;border-color:var(--hmi-red)!important}
+.validation-count.clear{background:var(--hmi-green-soft)!important;color:var(--hmi-green)!important;border-color:var(--hmi-green)!important}
+.validation-queue{gap:9px!important}
+.validation-row{min-height:82px!important;padding:10px 13px!important;background:var(--hmi-panel-2)!important;color:#fff!important;border:2px solid var(--hmi-line)!important;border-radius:7px!important;box-shadow:none!important;transform:none!important}
+.validation-row.critical{background:var(--hmi-red-soft)!important;border-color:var(--hmi-red)!important;border-left:8px solid var(--hmi-red)!important}
+.validation-row.confirm{border-left:8px solid var(--hmi-orange)!important}
+.validation-row.overlap{background:var(--hmi-blue-soft)!important;border-left:8px solid var(--hmi-blue)!important}
+.validation-row-icon{width:44px!important;height:44px!important;border-radius:5px!important;background:#000!important;color:#fff!important}
+.validation-row-copy small{font-size:12px!important;font-weight:950!important;letter-spacing:.08em!important}
+.validation-row.critical .validation-row-copy small{color:#ff8a84!important}
+.validation-row.confirm .validation-row-copy small{color:#ffc55e!important}
+.validation-row.overlap .validation-row-copy small{color:#70c4ff!important}
+.validation-row-copy strong{color:#fff!important;font-size:18px!important;font-weight:950!important}
+.validation-row-copy em{color:var(--hmi-muted)!important;font-size:14px!important;line-height:1.35!important}
+.validation-row-action{min-width:72px!important;color:var(--hmi-yellow)!important;font-size:14px!important;font-weight:950!important}
+.validation-clear-state{min-height:76px!important;background:var(--hmi-green-soft)!important;color:#fff!important;border:2px solid var(--hmi-green)!important;border-radius:7px!important}
+.validation-clear-state svg{color:var(--hmi-green)!important}
+.validation-clear-state span,.validation-clear-state small{color:#bdebcf!important}
+.validation-resolved-note{color:var(--hmi-green)!important;font-weight:850!important}
+
+/* Sheet de decisão */
+.decision-sheet-overlay{background:rgba(0,0,0,.82)!important}
+.decision-sheet{background:#090c0a!important;color:#fff!important;border:2px solid var(--hmi-line-strong)!important;border-radius:10px 10px 0 0!important;box-shadow:none!important}
+.decision-sheet-handle{background:var(--hmi-line-strong)!important}
+.decision-sheet-head{min-height:72px!important;border-bottom:2px solid var(--hmi-line)!important}
+.decision-sheet-head span{color:var(--hmi-yellow)!important;font-size:12px!important;font-weight:950!important;letter-spacing:.1em!important}
+.decision-sheet-head h2{color:#fff!important;font-size:23px!important;font-weight:950!important}
+.decision-sheet-close{width:54px!important;height:54px!important;background:var(--hmi-panel-2)!important;color:#fff!important;border:2px solid var(--hmi-line-strong)!important;border-radius:6px!important}
+.decision-sheet-body{padding:14px!important}
+
+/* Assistente */
+.assist-card{background:var(--hmi-panel)!important;color:#fff!important;border:2px solid var(--hmi-orange)!important;border-radius:7px!important;box-shadow:none!important}
+.assist-head span{color:var(--hmi-orange)!important;font-size:12px!important;font-weight:950!important}
+.assist-head strong{color:#fff!important;font-size:20px!important;font-weight:950!important}
+.assist-head small{color:var(--hmi-muted)!important}
+.assist-card p{color:#fff!important;font-size:16px!important;line-height:1.45!important}
+.assist-origin{color:var(--hmi-muted)!important;border-color:var(--hmi-line)!important}
+.assist-origin button{min-height:50px!important;background:var(--hmi-panel-2)!important;color:var(--hmi-yellow)!important;border:2px solid var(--hmi-line)!important;border-radius:6px!important;font-weight:900!important}
+.assist-choice-label,.assist-time-field span,.assist-text-field span{color:var(--hmi-muted)!important;font-size:14px!important;font-weight:850!important}
+.setup-placement-grid,.setup-type-grid,.absence-choice-grid{gap:10px!important}
+.setup-placement-grid button,.setup-type-grid button,.absence-choice-grid button{min-height:66px!important;padding:10px 12px!important;background:var(--hmi-panel-2)!important;color:#fff!important;border:2px solid var(--hmi-line-strong)!important;border-radius:6px!important;font-size:16px!important;font-weight:900!important}
+.setup-placement-grid button.selected,.setup-type-grid button.selected{background:var(--hmi-yellow)!important;color:#000!important;border-color:var(--hmi-yellow)!important}
+.assist-time-field input,.assist-text-field input{min-height:60px!important;padding:0 14px!important;background:#000!important;color:#fff!important;border:2px solid var(--hmi-line-strong)!important;border-radius:6px!important;font-size:18px!important}
+.assist-secondary{background:var(--hmi-panel-2)!important;color:#fff!important;border:2px solid var(--hmi-line-strong)!important}
+.assist-success{background:var(--hmi-green)!important;color:#001507!important;border-radius:5px!important;font-weight:950!important}
+
+/* Sobreposição e conflito no sheet */
+.attention-decision-card,.conflict-card{background:var(--hmi-panel)!important;color:#fff!important;border:2px solid var(--hmi-line)!important;border-radius:7px!important;box-shadow:none!important}
+.attention-decision-card{border-color:var(--hmi-blue)!important}
+.conflict-card{border-color:var(--hmi-red)!important;background:var(--hmi-red-soft)!important}
+.attention-context,.attention-context-editor,.conflict-source-card{background:#050605!important;color:#fff!important;border:2px solid var(--hmi-line)!important;border-radius:6px!important}
+.attention-context strong,.attention-context-editor strong{color:#fff!important}
+.attention-context span,.attention-context-editor span{color:var(--hmi-muted)!important}
+.attention-actions button,.attention-editor-actions button,.conflict-copy-button{min-height:60px!important;border-radius:6px!important;font-size:15px!important;font-weight:950!important}
+
+/* Relatório */
+.v5-report{background:var(--hmi-panel)!important}
+.v5-report .report-editor-stage{padding:14px!important}
+.v5-report .report-tabs{padding:5px!important;background:#030403!important;border:2px solid var(--hmi-line)!important;border-radius:7px!important}
+.v5-report .report-tabs button{min-height:60px!important;border:0!important;border-radius:5px!important;background:transparent!important;color:var(--hmi-muted)!important;font-size:18px!important;font-weight:950!important;box-shadow:none!important}
+.v5-report .report-tabs button[data-state='active']{background:var(--hmi-yellow)!important;color:#000!important;box-shadow:none!important}
+.v5-report .report-version-state strong{color:#fff!important;font-size:15px!important}
+.v5-report .report-version-state small{color:var(--hmi-muted)!important;font-size:13px!important}
+.v5-report .structured-report{overflow:hidden!important;background:#050605!important;border:2px solid var(--hmi-line)!important;border-radius:7px!important}
+.v5-report .report-preview-block{padding:14px 70px 14px 16px!important;background:var(--hmi-panel)!important;border:0!important;border-bottom:2px solid #29302d!important;border-radius:0!important}
+.v5-report .report-preview-line.heading{color:var(--hmi-yellow)!important;font-size:17px!important;font-weight:950!important;letter-spacing:0!important}
+.v5-report .report-preview-line{color:#fff!important;font-size:17px!important;line-height:1.52!important}
+.v5-report .empty-report-block{opacity:.58!important}
+.v5-report .block-edit-trigger{right:9px!important;top:9px!important;width:50px!important;height:50px!important;background:var(--hmi-panel-3)!important;color:#fff!important;border:2px solid var(--hmi-line)!important;border-radius:6px!important}
+.v5-report .block-edit-trigger:active{background:var(--hmi-yellow)!important;color:#000!important;border-color:var(--hmi-yellow)!important}
+.v5-report .add-block-button{min-height:58px!important;background:var(--hmi-panel-2)!important;color:var(--hmi-yellow)!important;border:2px dashed var(--hmi-yellow)!important;border-radius:6px!important}
+.v5-report .report-copy-actions{background:transparent!important;backdrop-filter:none!important;gap:9px!important}
+.v5-report .report-copy-actions button{min-height:62px!important;border-radius:6px!important;font-size:16px!important;font-weight:950!important;box-shadow:none!important}
+
+/* Editor de bloco inteiro */
+.block-editor-v5{background:#070907!important;color:#fff!important;border:2px solid var(--hmi-yellow)!important;border-radius:7px!important}
+.block-editor-v5-head{padding:14px!important;border-bottom:2px solid var(--hmi-line)!important}
+.block-editor-v5-head span{color:var(--hmi-yellow)!important;font-size:12px!important;font-weight:950!important;letter-spacing:.09em!important}
+.block-editor-v5-head strong{color:#fff!important;font-size:20px!important;font-weight:950!important}
+.block-editor-v5-head small{color:var(--hmi-green)!important;font-size:13px!important}
+.block-close-v5{width:52px!important;height:52px!important;background:var(--hmi-panel-2)!important;color:#fff!important;border:2px solid var(--hmi-line-strong)!important;border-radius:6px!important}
+.whole-block-field{gap:8px!important;padding:14px!important}
+.whole-block-field>span{color:var(--hmi-muted)!important;font-size:14px!important;font-weight:850!important}
+.whole-block-field textarea{width:100%!important;min-height:220px!important;padding:16px!important;resize:vertical!important;background:#000!important;color:#fff!important;border:2px solid var(--hmi-line-strong)!important;border-radius:6px!important;font-size:18px!important;line-height:1.58!important;box-shadow:none!important}
+.whole-block-field textarea:focus{border-color:var(--hmi-yellow)!important;outline:3px solid rgba(255,212,0,.22)!important;box-shadow:none!important}
+.whole-block-field small{color:var(--hmi-muted)!important;font-size:13px!important}
+.block-editor-v5-actions{padding:0 14px 14px!important;gap:10px!important}
+.block-order-actions{gap:8px!important}
+.block-order-actions button{min-height:52px!important;padding:0 13px!important;background:var(--hmi-panel-2)!important;color:#fff!important;border:2px solid var(--hmi-line)!important;border-radius:6px!important;font-size:14px!important;font-weight:850!important}
+.block-order-actions .danger-mini{color:#ff8d87!important;border-color:var(--hmi-red)!important}
+.primary-save-v5{background:var(--hmi-green)!important;color:#001507!important;border:2px solid var(--hmi-green)!important}
+
+/* Estados semânticos */
+.is-success,.success,.confirmed,[data-state='success']{background:var(--hmi-green-soft)!important;color:var(--hmi-green)!important;border-color:var(--hmi-green)!important}
+.is-danger,.danger,.error,[data-state='error']{background:var(--hmi-red-soft)!important;color:#fff!important;border-color:var(--hmi-red)!important}
+.risk-label{background:var(--hmi-red)!important;color:#fff!important}
+.success-label{background:var(--hmi-green)!important;color:#001407!important}
+
+/* Desktop — workspace de produção */
+@media(min-width:980px){
+  .v5-shell{width:min(1500px,calc(100% - 36px))!important;padding-top:0!important}
+  .v5-topbar{position:sticky!important;top:0!important;z-index:40!important}
+  .v5-intake-grid{grid-template-columns:470px minmax(0,1fr)!important;gap:16px!important;margin-top:14px!important}
+  .v5-raw-input{min-height:430px!important}
+  .v5-workspace-nav{position:sticky!important;top:76px!important;z-index:25!important;width:max-content!important;grid-template-columns:repeat(4,140px)!important;margin-left:auto!important}
+  .v5-workbench{grid-template-columns:minmax(440px,.78fr) minmax(650px,1.22fr)!important;gap:16px!important}
+  .v5-report{position:sticky!important;top:148px!important;margin-top:0!important}
+  .v5-metric-grid{grid-template-columns:repeat(2,1fr)!important}
+  .decision-sheet{width:min(760px,calc(100% - 40px))!important;bottom:20px!important;border-radius:10px!important;max-height:calc(100dvh - 48px)!important}
+}
+
+/* Mobile / uso com luva */
+@media(max-width:979px){
+  .v5-shell{width:calc(100% - 12px)!important}
+  .v5-workbench{display:block!important}
+  .v5-workbench-left{margin-bottom:12px!important}
+  .v5-counter-row>label{grid-template-columns:minmax(0,1fr) 82px!important}
+  .decision-sheet{border-radius:10px 10px 0 0!important}
+}
+@media(max-width:620px){
+  body{font-size:17px!important}
+  .v5-topbar h1{font-size:22px!important}
+  .v5-route-card{padding:12px!important}
+  .command-copy>strong{font-size:25px!important}
+  .shift-buttons button{min-width:0!important;min-height:60px!important;padding:0 10px!important}
+  .v5-manual .manual-panel-toggle,.v5-report .report-panel-toggle{min-height:72px!important;padding:10px 12px!important}
+  .v5-manual-groups{padding:10px!important;gap:14px!important}
+  .v5-counter-row{min-height:74px!important;padding-left:10px!important}
+  .v5-counter-row>label>span{font-size:16px!important}
+  .v5-counter-row input{height:54px!important;font-size:23px!important}
+  .v5-counter-row .counter-actions button{width:56px!important;height:56px!important}
+  .v5-intake{padding:12px!important}
+  .v5-raw-input{min-height:300px!important;font-size:16px!important}
+  .v5-metric-grid{grid-template-columns:repeat(2,1fr)!important}
+  .v5-report .report-preview-line,.v5-report .report-preview-line.heading{font-size:16px!important}
+  .validation-row{min-height:86px!important}
+  .validation-row-action{display:none!important}
+  .primary-button,.secondary-button,.compact-button{min-height:62px!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}
+}
