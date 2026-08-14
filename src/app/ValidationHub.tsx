@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
 import { Dialog } from 'radix-ui';
 import { AlertTriangle, CheckCircle2, CircleHelp, Layers3, X } from 'lucide-react';
 import type { AssistedValidation, AuditIssue, OperationalAttention, SectorSnapshot } from '../domain/types';
@@ -86,52 +85,44 @@ export default function ValidationHub({
         </div>
       ) : (
         <div className="validation-queue">
-          <AnimatePresence initial={false} mode="popLayout">
-            {issues.map((issue) => (
-              <motion.button
-                layout
-                exit={{ opacity: 0, scale: 0.98 }}
-                key={`issue-${issue.id}`}
-                type="button"
-                className="validation-row critical"
-                onClick={() => setActive({ kind: 'issue', id: issue.id })}
-              >
-                <span className="validation-row-icon"><AlertTriangle size={17} /></span>
-                <span className="validation-row-copy"><small>CONFLITO</small><strong>{issue.tnl || 'Revisão necessária'}</strong><em>{issue.message}</em></span>
-                <span className="validation-row-action">Abrir</span>
-              </motion.button>
-            ))}
+          {issues.map((issue) => (
+            <button
+              key={`issue-${issue.id}`}
+              type="button"
+              className="validation-row critical"
+              onClick={() => setActive({ kind: 'issue', id: issue.id })}
+            >
+              <span className="validation-row-icon"><AlertTriangle size={17} /></span>
+              <span className="validation-row-copy"><small>CONFLITO</small><strong>{issue.tnl || 'Revisão necessária'}</strong><em>{issue.message}</em></span>
+              <span className="validation-row-action">Abrir</span>
+            </button>
+          ))}
 
-            {validations.map((validation) => (
-              <motion.button
-                layout
-                exit={{ opacity: 0, scale: 0.98 }}
-                key={`validation-${validation.id}`}
-                type="button"
-                className="validation-row confirm"
-                onClick={() => setActive({ kind: 'validation', id: validation.id })}
-              >
-                <span className="validation-row-icon"><CircleHelp size={17} /></span>
-                <span className="validation-row-copy"><small>CONFIRMAR</small><strong>{shortValidationMessage(validation)}</strong><em>{validation.message}</em></span>
-                <span className="validation-row-action">Resolver</span>
-              </motion.button>
-            ))}
+          {validations.map((validation) => (
+            <button
+              key={`validation-${validation.id}`}
+              type="button"
+              className="validation-row confirm"
+              onClick={() => setActive({ kind: 'validation', id: validation.id })}
+            >
+              <span className="validation-row-icon"><CircleHelp size={17} /></span>
+              <span className="validation-row-copy"><small>CONFIRMAR</small><strong>{shortValidationMessage(validation)}</strong><em>{validation.message}</em></span>
+              <span className="validation-row-action">Resolver</span>
+            </button>
+          ))}
 
-            {attentions.map((attention) => (
-              <motion.button
-                layout
-                exit={{ opacity: 0, scale: 0.98 }}
-                key={`attention-${attention.id}`}
-                type="button"
-                className="validation-row overlap"
-                onClick={() => setActive({ kind: 'attention', id: attention.id })}
-              >
-                <span className="validation-row-icon"><Layers3 size={17} /></span>
-                <span className="validation-row-copy"><small>SOBREPOSIÇÃO</small><strong>{attention.tnl}</strong><em>{attentionSummary(attention)}</em></span>
-                <span className="validation-row-action">Decidir</span>
-              </motion.button>
-            ))}
-          </AnimatePresence>
+          {attentions.map((attention) => (
+            <button
+              key={`attention-${attention.id}`}
+              type="button"
+              className="validation-row overlap"
+              onClick={() => setActive({ kind: 'attention', id: attention.id })}
+            >
+              <span className="validation-row-icon"><Layers3 size={17} /></span>
+              <span className="validation-row-copy"><small>SOBREPOSIÇÃO</small><strong>{attention.tnl}</strong><em>{attentionSummary(attention)}</em></span>
+              <span className="validation-row-action">Decidir</span>
+            </button>
+          ))}
         </div>
       )}
 
