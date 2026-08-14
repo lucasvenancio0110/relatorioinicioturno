@@ -43,6 +43,7 @@ function parseAbsence(line: string, sourceId: string): AbsenceRecord | null {
   const c = canonical(line);
   const name = titleCaseName(line);
   if (!name || isNA(line)) return null;
+  if (/AFASTAD|AFASTAMENTO|LICENCA/.test(c)) return { name, type: 'leave', sourceId };
   if (c.includes('FERIAS')) return { name, type: 'vacation', sourceId };
   if (c.includes('ATESTADO')) return { name, type: 'certificate', sourceId };
   if (c.includes('ATRAS')) return { name, type: 'delay', sourceId };

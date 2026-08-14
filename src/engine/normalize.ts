@@ -117,7 +117,7 @@ export function isNA(value: string): boolean {
 export function titleCaseName(value: string): string {
   const cleaned = stripMarkup(value)
     .replace(/\([^)]*\)/g, ' ')
-    .replace(/\b(?:FERIAS|FÉRIAS|ATESTADOS?|ATRASADOS?|ATRASOS?|FALTAS?)\b/gi, ' ')
+    .replace(/\b(?:FERIAS|FÉRIAS|ATESTADOS?|ATRASADOS?|ATRASOS?|FALTAS?|AFASTADOS?|AFASTADAS?|AFASTAMENTO|LICENÇA|LICENCA)\b/gi, ' ')
     .replace(/\s+-\s+.*$/, ' ')
     .replace(/\/.*$/g, ' ')
     .replace(/^[-\s]+|[-\s]+$/g, ' ')

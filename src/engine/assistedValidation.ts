@@ -194,7 +194,7 @@ function detailValidation(
 
 function absenceValidation(sourceId: string, line: string): AssistedValidation | null {
   const c = canonical(line);
-  if (/FERIAS|ATESTADO|ATRAS|FALTA/.test(c)) return null;
+  if (/FERIAS|ATESTADO|ATRAS|FALTA|AFASTAD|AFASTAMENTO|LICENCA/.test(c)) return null;
   const person = titleCaseName(line);
   if (!person) return null;
   return {

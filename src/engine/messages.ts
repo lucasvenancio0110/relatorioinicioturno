@@ -5,7 +5,7 @@ const whatsappHeader = /^[\s\u200e\u200f]*\[(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1
 
 function extractLineLabel(body: string): string | undefined {
   const normalized = canonical(body);
-  const machineFamily = normalized.match(/\bLINHA\s+TNL\s+([\d.]+\s*\/\s*\d+)/);
+  const machineFamily = normalized.match(/\bLINHA\s+TNL\s+([\d.]+(?:\s*\/\s*\d+)?)/);
   if (machineFamily) return `TNL ${machineFamily[1].replace(/\s+/g, '')}`;
 
   const numbered = normalized.match(/\bLINHA\s*(?:N[°º]?\s*)?(\d+(?:\.\d+)?)/);

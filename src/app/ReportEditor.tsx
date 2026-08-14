@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Tabs } from 'radix-ui';
+import { ArrowDown, ArrowUp, Check, Copy, PencilLine, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { REPORT_SEPARATOR } from '../engine/reports';
 import {
   createReportBlock,
@@ -33,27 +35,47 @@ interface BlockCardProps {
   onMove: (direction: -1 | 1) => void;
 }
 
+export function reportBlockHeadingCount(block: ReportDocumentBlock): number {
+  let count = 0;
+  for (const line of block.lines) {
+    if (!line.bold) break;
+    count += 1;
+  }
+  return count;
+}
+
+export function reportBlockBody(block: ReportDocumentBlock): string {
+  return block.lines.slice(reportBlockHeadingCount(block)).map((line) => line.text).join('\n');
+}
+
+export function replaceReportBlockBody(block: ReportDocumentBlock, body: string): ReportDocumentBlock {
+  const headingCount = reportBlockHeadingCount(block);
+  const headings = block.lines.slice(0, headingCount);
+  const previousBody = block.lines.slice(headingCount);
+  const values = body.split('\n');
+  const bodyLines = values.map((text, index) => ({
+    id: previousBody[index]?.id || createReportLine().id,
+    text,
+    bold: false,
+  }));
+  return { ...block, lines: [...headings, ...(bodyLines.length ? bodyLines : [createReportLine('', false)])] };
+}
+
 function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onChange, onDelete, onMove }: BlockCardProps) {
-  const updateLine = (lineId: string, patch: { text?: string; bold?: boolean }) => {
-    onChange({
-      ...block,
-      lines: block.lines.map((line) => line.id === lineId ? { ...line, ...patch } : line),
-    });
-  };
-
-  const removeLine = (lineId: string) => {
-    const lines = block.lines.filter((line) => line.id !== lineId);
-    onChange({ ...block, lines: lines.length ? lines : [createReportLine('', false)] });
-  };
-
-  const addLine = () => onChange({ ...block, lines: [...block.lines, createReportLine('', false)] });
-  const values = block.lines.slice(1).map((line) => line.text.trim().toUpperCase()).filter(Boolean);
+  const [draft, setDraft] = useState(() => reportBlockBody(block));
+  const headingCount = reportBlockHeadingCount(block);
+  const headingLines = block.lines.slice(0, headingCount);
+  const values = block.lines.slice(headingCount).map((line) => line.text.trim().toUpperCase()).filter(Boolean);
   const empty = !editing && values.length > 0 && values.every((value) => value === 'N/A');
+
+  useEffect(() => {
+    if (editing) setDraft(reportBlockBody(block));
+  }, [editing, block.id]);
 
   if (!editing) {
     return (
       <article className={`report-preview-block editable-report-block${empty ? ' empty-report-block' : ''}`}>
-        <button className="block-edit-trigger" type="button" onClick={onEdit} aria-label={`Editar bloco ${index + 1}`}>✎</button>
+        <button className="block-edit-trigger" type="button" onClick={onEdit} aria-label={`Editar bloco ${index + 1}`}><PencilLine size={15}/></button>
         {block.lines.map((line) => (
           <div className={line.bold ? 'report-preview-line heading' : 'report-preview-line'} key={line.id}>
             {line.text || '\u00A0'}
@@ -63,43 +85,50 @@ function BlockCard({ block, index, total, editing, linked, onEdit, onDone, onCha
     );
   }
 
+  const save = () => {
+    onChange(replaceReportBlockBody(block, draft));
+    onDone();
+  };
+
   return (
-    <article className="report-preview-block report-block-editing">
-      <div className="block-edit-toolbar">
+    <article className="report-preview-block report-block-editing block-editor-v5">
+      <div className="block-editor-v5-head">
         <div>
-          <strong>Editar bloco {index + 1}</strong>
-          {linked && <small>Sincronizado com a outra versão.</small>}
+          <span>EDITANDO BLOCO</span>
+          <strong>{headingLines.map((line) => line.text).join(' · ') || `Bloco ${index + 1}`}</strong>
+          {linked && <small>Sincronizado com a outra versão</small>}
         </div>
-        <div>
-          <button type="button" onClick={() => onMove(-1)} disabled={index === 0} aria-label="Mover bloco para cima">↑</button>
-          <button type="button" onClick={() => onMove(1)} disabled={index === total - 1} aria-label="Mover bloco para baixo">↓</button>
-          <button type="button" className="danger-mini" onClick={onDelete}>Excluir</button>
-          <button type="button" className="done-mini" onClick={onDone}>Concluir</button>
-        </div>
+        <button type="button" className="block-close-v5" onClick={onDone} aria-label="Cancelar edição"><X size={17}/></button>
       </div>
 
-      <div className="block-line-editor-list">
-        {block.lines.map((line, lineIndex) => (
-          <div className="block-line-editor" key={line.id}>
-            <button
-              type="button"
-              className={line.bold ? 'format-toggle active' : 'format-toggle'}
-              onClick={() => updateLine(line.id, { bold: !line.bold })}
-              aria-label={line.bold ? 'Remover destaque da linha' : 'Transformar linha em título'}
-              title="Título/negrito no WhatsApp"
-            >B</button>
-            <textarea
-              rows={1}
-              value={line.text}
-              onChange={(event) => updateLine(line.id, { text: event.target.value.replace(/\n/g, ' ') })}
-              aria-label={`Linha ${lineIndex + 1} do bloco ${index + 1}`}
-            />
-            <button className="remove-line" type="button" onClick={() => removeLine(line.id)} aria-label="Excluir linha">×</button>
-          </div>
-        ))}
-      </div>
+      <label className="whole-block-field">
+        <span>Conteúdo</span>
+        <textarea
+          autoFocus
+          value={draft}
+          rows={Math.max(4, Math.min(12, draft.split('\n').length + 2))}
+          placeholder="Digite ou cole todo o conteúdo deste bloco. Use Enter para criar novas linhas."
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+              event.preventDefault();
+              save();
+            }
+            if (event.key === 'Escape') onDone();
+          }}
+          aria-label={`Conteúdo do bloco ${index + 1}`}
+        />
+        <small>Enter cria linhas · Ctrl/⌘ + Enter salva · Esc cancela</small>
+      </label>
 
-      <button className="add-line-button" type="button" onClick={addLine}>+ Adicionar linha</button>
+      <div className="block-editor-v5-actions">
+        <div className="block-order-actions">
+          <button type="button" onClick={() => onMove(-1)} disabled={index === 0} aria-label="Mover bloco para cima"><ArrowUp size={15}/></button>
+          <button type="button" onClick={() => onMove(1)} disabled={index === total - 1} aria-label="Mover bloco para baixo"><ArrowDown size={15}/></button>
+          <button type="button" className="danger-mini" onClick={onDelete}><Trash2 size={15}/> Excluir</button>
+        </div>
+        <button type="button" className="done-mini primary-save-v5" onClick={save}><Check size={16}/> Salvar bloco</button>
+      </div>
     </article>
   );
 }
@@ -124,16 +153,7 @@ export default function ReportEditor({ fullReport, compactReport, persistenceRev
   }, [compactReport, compactDirty]);
 
   useEffect(() => {
-    saveReportWorkspace({
-      revision: persistenceRevision,
-      sourceFullReport: fullReport,
-      sourceCompactReport: compactReport,
-      tab,
-      fullBlocks,
-      compactBlocks,
-      fullDirty,
-      compactDirty,
-    });
+    saveReportWorkspace({ revision: persistenceRevision, sourceFullReport: fullReport, sourceCompactReport: compactReport, tab, fullBlocks, compactBlocks, fullDirty, compactDirty });
   }, [persistenceRevision, fullReport, compactReport, tab, fullBlocks, compactBlocks, fullDirty, compactDirty]);
 
   const activeBlocks = tab === 'full' ? fullBlocks : compactBlocks;
@@ -142,69 +162,34 @@ export default function ReportEditor({ fullReport, compactReport, persistenceRev
   const activeGenerated = tab === 'full' ? fullReport : compactReport;
   const activeDraft = useMemo(() => serializeReportDocument(activeBlocks), [activeBlocks]);
 
-  const markFull = (next: ReportDocumentBlock[]) => {
-    setFullBlocks(next);
-    setFullDirty(serializeReportDocument(next) !== fullReport);
-  };
-
-  const markCompact = (next: ReportDocumentBlock[]) => {
-    setCompactBlocks(next);
-    setCompactDirty(serializeReportDocument(next) !== compactReport);
-  };
-
-  const replaceActiveOnly = (next: ReportDocumentBlock[]) => {
-    if (tab === 'full') markFull(next);
-    else markCompact(next);
-  };
+  const markFull = (next: ReportDocumentBlock[]) => { setFullBlocks(next); setFullDirty(serializeReportDocument(next) !== fullReport); };
+  const markCompact = (next: ReportDocumentBlock[]) => { setCompactBlocks(next); setCompactDirty(serializeReportDocument(next) !== compactReport); };
+  const replaceActiveOnly = (next: ReportDocumentBlock[]) => { if (tab === 'full') markFull(next); else markCompact(next); };
 
   const restoreActive = () => {
     const restoredDocument = parseReportDocument(activeGenerated);
-    if (tab === 'full') {
-      setFullBlocks(restoredDocument);
-      setFullDirty(false);
-    } else {
-      setCompactBlocks(restoredDocument);
-      setCompactDirty(false);
-    }
+    if (tab === 'full') { setFullBlocks(restoredDocument); setFullDirty(false); }
+    else { setCompactBlocks(restoredDocument); setCompactDirty(false); }
     setEditingBlockId(null);
     setEditingSharedKey(null);
   };
 
-  const beginEdit = (block: ReportDocumentBlock) => {
-    setEditingBlockId(block.id);
-    setEditingSharedKey(getSharedReportBlockKey(block));
-  };
-
-  const finishEdit = () => {
-    setEditingBlockId(null);
-    setEditingSharedKey(null);
-  };
+  const beginEdit = (block: ReportDocumentBlock) => { setEditingBlockId(block.id); setEditingSharedKey(getSharedReportBlockKey(block)); };
+  const finishEdit = () => { setEditingBlockId(null); setEditingSharedKey(null); };
 
   const changeBlock = (blockId: string, nextBlock: ReportDocumentBlock) => {
     const sharedKey = editingBlockId === blockId ? editingSharedKey : getSharedReportBlockKey(activeBlocks.find((block) => block.id === blockId) || nextBlock);
     const nextActive = activeBlocks.map((block) => block.id === blockId ? nextBlock : block);
-
-    if (tab === 'full') {
-      markFull(nextActive);
-      if (sharedKey) markCompact(syncSharedReportBlock(compactBlocks, sharedKey, nextBlock));
-    } else {
-      markCompact(nextActive);
-      if (sharedKey) markFull(syncSharedReportBlock(fullBlocks, sharedKey, nextBlock));
-    }
+    if (tab === 'full') { markFull(nextActive); if (sharedKey) markCompact(syncSharedReportBlock(compactBlocks, sharedKey, nextBlock)); }
+    else { markCompact(nextActive); if (sharedKey) markFull(syncSharedReportBlock(fullBlocks, sharedKey, nextBlock)); }
   };
 
   const deleteBlock = (blockId: string) => {
     const currentBlock = activeBlocks.find((block) => block.id === blockId);
     const sharedKey = editingBlockId === blockId ? editingSharedKey : currentBlock ? getSharedReportBlockKey(currentBlock) : null;
     const nextActive = activeBlocks.filter((block) => block.id !== blockId);
-
-    if (tab === 'full') {
-      markFull(nextActive);
-      if (sharedKey) markCompact(removeSharedReportBlock(compactBlocks, sharedKey));
-    } else {
-      markCompact(nextActive);
-      if (sharedKey) markFull(removeSharedReportBlock(fullBlocks, sharedKey));
-    }
+    if (tab === 'full') { markFull(nextActive); if (sharedKey) markCompact(removeSharedReportBlock(compactBlocks, sharedKey)); }
+    else { markCompact(nextActive); if (sharedKey) markFull(removeSharedReportBlock(fullBlocks, sharedKey)); }
     finishEdit();
   };
 
@@ -228,69 +213,44 @@ export default function ReportEditor({ fullReport, compactReport, persistenceRev
   const copyText = async (kind: 'active' | 'both') => {
     const fullDraft = serializeReportDocument(fullBlocks);
     const compactDraft = serializeReportDocument(compactBlocks);
-    const text = kind === 'both'
-      ? `${fullDraft}\n\n${REPORT_SEPARATOR}\n\n${compactDraft}`
-      : activeDraft;
+    const text = kind === 'both' ? `${fullDraft}\n\n${REPORT_SEPARATOR}\n\n${compactDraft}` : activeDraft;
     await navigator.clipboard.writeText(text);
     setCopied(kind);
     window.setTimeout(() => setCopied(null), 1500);
   };
 
-  const selectTab = (nextTab: ReportTab) => {
-    setTab(nextTab);
-    finishEdit();
-  };
+  const selectTab = (nextTab: string) => { setTab(nextTab as ReportTab); finishEdit(); };
 
   return (
-    <div className="report-workspace">
-      <div className="report-tabs" role="tablist" aria-label="Versão do relatório">
-        <button type="button" className={tab === 'full' ? 'active' : ''} onClick={() => selectTab('full')}>Completo</button>
-        <button type="button" className={tab === 'compact' ? 'active' : ''} onClick={() => selectTab('compact')}>Resumido</button>
-      </div>
+    <div className="report-workspace v5-report-workspace">
+      <Tabs.Root className="report-tabs-root" value={tab} onValueChange={selectTab}>
+        <Tabs.List className="report-tabs" aria-label="Versão do relatório">
+          <Tabs.Trigger value="full">Completo</Tabs.Trigger>
+          <Tabs.Trigger value="compact">Resumido</Tabs.Trigger>
+        </Tabs.List>
+      </Tabs.Root>
 
       <div className="report-editor-toolbar block-editor-heading">
         <div className="report-version-state">
-          <div>
-            <strong>{activeLabel}</strong>
-            <small>O que você vê nos blocos é o que será copiado.</small>
-          </div>
+          <div><strong>{activeLabel}</strong><small>Clique no lápis e edite o bloco inteiro.</small></div>
           <span className={activeDirty ? 'edited-badge' : 'automatic-badge'}>{activeDirty ? 'Editado' : 'Automático'}</span>
         </div>
-        {activeDirty && <button type="button" className="ghost-button" onClick={restoreActive}>Restaurar</button>}
+        {activeDirty && <button type="button" className="ghost-button" onClick={restoreActive}><RotateCcw size={14}/> Restaurar</button>}
       </div>
 
       <div className="report-preview structured-report" aria-label={`Relatório ${activeLabel.toLowerCase()} editável por blocos`}>
         {activeBlocks.map((block, index) => (
           <div id={`report-block-${block.id}`} key={block.id}>
-            <BlockCard
-              block={block}
-              index={index}
-              total={activeBlocks.length}
-              editing={editingBlockId === block.id}
-              linked={Boolean(getSharedReportBlockKey(block) || (editingBlockId === block.id && editingSharedKey))}
-              onEdit={() => beginEdit(block)}
-              onDone={finishEdit}
-              onChange={(nextBlock) => changeBlock(block.id, nextBlock)}
-              onDelete={() => deleteBlock(block.id)}
-              onMove={(direction) => moveBlock(block.id, direction)}
-            />
+            <BlockCard block={block} index={index} total={activeBlocks.length} editing={editingBlockId === block.id} linked={Boolean(getSharedReportBlockKey(block) || (editingBlockId === block.id && editingSharedKey))} onEdit={() => beginEdit(block)} onDone={finishEdit} onChange={(nextBlock) => changeBlock(block.id, nextBlock)} onDelete={() => deleteBlock(block.id)} onMove={(direction) => moveBlock(block.id, direction)}/>
           </div>
         ))}
-        <button className="add-block-button" type="button" onClick={addBlock}>+ Adicionar bloco nesta versão</button>
+        <button className="add-block-button" type="button" onClick={addBlock}><Plus size={15}/> Adicionar bloco</button>
       </div>
 
-      <div className="report-meta-row">
-        <span>{activeDraft.split('\n').length} linhas</span>
-        <span>{activeDraft.length.toLocaleString('pt-BR')} caracteres</span>
-      </div>
-
+      <div className="report-meta-row"><span>{activeDraft.split('\n').length} linhas</span><span>{activeDraft.length.toLocaleString('pt-BR')} caracteres</span></div>
       <div className="report-copy-actions">
-        <button className="primary-button" type="button" onClick={() => copyText('active')}>
-          {copied === 'active' ? 'Copiado ✓' : `Copiar ${activeLabel.toLowerCase()}`}
-        </button>
-        <button className="secondary-button" type="button" onClick={() => copyText('both')}>
-          {copied === 'both' ? 'Os dois copiados ✓' : 'Copiar completo + resumido'}
-        </button>
+        <button className="primary-button" type="button" onClick={() => copyText('active')}><Copy size={16}/>{copied === 'active' ? 'Copiado ✓' : `Copiar ${activeLabel.toLowerCase()}`}</button>
+        <button className="secondary-button" type="button" onClick={() => copyText('both')}><Copy size={16}/>{copied === 'both' ? 'Os dois copiados ✓' : 'Copiar completo + resumido'}</button>
       </div>
     </div>
   );
