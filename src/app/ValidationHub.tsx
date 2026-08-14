@@ -14,6 +14,8 @@ type ActiveItem =
   | { kind: 'attention'; id: string }
   | null;
 
+type PendingItem = Exclude<ActiveItem, null>;
+
 interface Props {
   snapshot: SectorSnapshot;
   validations: AssistedValidation[];
@@ -27,13 +29,24 @@ interface Props {
   onReopenAttention: (attentionId: string) => void;
 }
 
-function shortValidationMessage(validation: AssistedValidation): string {
-  if (validation.tnl) return `${validation.tnl} · ${validation.interpretedAs}`;
-  return validation.title;
+function validationSummary(validation: AssistedValidation): string {
+  if (validation.kind === 'maintenance-detail' || validation.kind === 'adjustment-detail' || validation.kind === 'development-detail') {
+    return `${validation.interpretedAs} · falta detalhe`;
+  }
+  if (validation.kind === 'setup-severity') return `${validation.interpretedAs} · falta tipo`;
+  if (validation.kind === 'setup-state') return 'Preparação · confirmar situação';
+  if (validation.kind === 'setup-time') return `${validation.interpretedAs} · falta horário`;
+  if (validation.kind === 'absence-type') return 'Ausência · confirmar tipo';
+  if (validation.kind === 'na-with-data') return `${validation.interpretedAs} · conferir dados`;
+  return validation.interpretedAs;
 }
 
 function attentionSummary(attention: OperationalAttention): string {
   return attention.contexts.map((context) => context.label).join(' + ');
+}
+
+function samePendingItem(left: PendingItem, right: PendingItem): boolean {
+  return left.kind === right.kind && left.id === right.id;
 }
 
 export default function ValidationHub({
@@ -49,7 +62,12 @@ export default function ValidationHub({
   onReopenAttention,
 }: Props) {
   const [active, setActive] = useState<ActiveItem>(null);
-  const pendingCount = validations.length + issues.length + attentions.length;
+  const pendingItems = useMemo<PendingItem[]>(() => [
+    ...issues.map((item) => ({ kind: 'issue' as const, id: item.id })),
+    ...validations.map((item) => ({ kind: 'validation' as const, id: item.id })),
+    ...attentions.map((item) => ({ kind: 'attention' as const, id: item.id })),
+  ], [issues, validations, attentions]);
+  const pendingCount = pendingItems.length;
 
   const activeValidation = useMemo(
     () => active?.kind === 'validation' ? validations.find((item) => item.id === active.id) : undefined,
@@ -64,8 +82,13 @@ export default function ValidationHub({
     [active, attentions],
   );
 
+  const activeIndex = active ? pendingItems.findIndex((item) => samePendingItem(item, active)) : -1;
+  const nextPending = activeIndex >= 0 ? (pendingItems[activeIndex + 1] ?? null) : null;
+  const hasNext = Boolean(nextPending);
+  const finishCurrent = () => setActive(nextPending);
+
   return (
-    <section className="validation-hub v8-validation" aria-label="Validação do setor">
+    <section className="validation-hub v8-validation v9-validation" aria-label="Validação do setor">
       <div className="validation-hub-head">
         <h2>Validação</h2>
         <div className={pendingCount ? 'validation-count pending' : 'validation-count clear'}>
@@ -85,40 +108,36 @@ export default function ValidationHub({
           {issues.map((issue) => (
             <button key={`issue-${issue.id}`} type="button" className="validation-row critical" onClick={() => setActive({ kind: 'issue', id: issue.id })}>
               <span className="validation-row-icon"><AlertTriangle size={17} /></span>
-              <span className="validation-row-copy"><small>CONFLITO</small><strong>{issue.tnl || 'Revisão necessária'}</strong><em>{issue.message}</em></span>
-              <span className="validation-row-action" aria-hidden="true"><ChevronRight size={17}/></span>
+              <span className="validation-row-copy"><strong>{issue.tnl || 'Revisão necessária'}</strong><em>Conflito · {issue.message}</em></span>
+              <span className="validation-row-action"><small>Revisar</small><ChevronRight size={17}/></span>
             </button>
           ))}
 
           {validations.map((validation) => (
             <button key={`validation-${validation.id}`} type="button" className="validation-row confirm" onClick={() => setActive({ kind: 'validation', id: validation.id })}>
               <span className="validation-row-icon"><CircleHelp size={17} /></span>
-              <span className="validation-row-copy"><small>CONFIRMAR</small><strong>{shortValidationMessage(validation)}</strong><em>{validation.message}</em></span>
-              <span className="validation-row-action" aria-hidden="true"><ChevronRight size={17}/></span>
+              <span className="validation-row-copy"><strong>{validation.tnl || validation.title}</strong><em>{validationSummary(validation)}</em></span>
+              <span className="validation-row-action"><small>Confirmar</small><ChevronRight size={17}/></span>
             </button>
           ))}
 
           {attentions.map((attention) => (
             <button key={`attention-${attention.id}`} type="button" className="validation-row overlap" onClick={() => setActive({ kind: 'attention', id: attention.id })}>
               <span className="validation-row-icon"><Layers3 size={17} /></span>
-              <span className="validation-row-copy"><small>SOBREPOSIÇÃO</small><strong>{attention.tnl}</strong><em>{attentionSummary(attention)}</em></span>
-              <span className="validation-row-action" aria-hidden="true"><ChevronRight size={17}/></span>
+              <span className="validation-row-copy"><strong>{attention.tnl}</strong><em>{attentionSummary(attention)}</em></span>
+              <span className="validation-row-action"><small>Revisar</small><ChevronRight size={17}/></span>
             </button>
           ))}
         </div>
       )}
 
-      {resolvedCount > 0 && pendingCount > 0 && (
-        <div className="validation-resolved-note"><CheckCircle2 size={13} /> {resolvedCount} resolvida(s)</div>
-      )}
-
       <Dialog.Root open={Boolean(active)} onOpenChange={(open) => { if (!open) setActive(null); }}>
         <Dialog.Portal>
           <Dialog.Overlay className="decision-sheet-overlay" />
-          <Dialog.Content className="decision-sheet" aria-describedby={undefined}>
+          <Dialog.Content className="decision-sheet v9-decision-sheet" aria-describedby={undefined}>
             <div className="decision-sheet-handle" />
             <div className="decision-sheet-head">
-              <Dialog.Title>Resolver</Dialog.Title>
+              <div className="v9-sheet-title"><Dialog.Title>Resolver</Dialog.Title>{activeIndex >= 0 && pendingCount > 1 && <span>{activeIndex + 1}/{pendingCount}</span>}</div>
               <Dialog.Close asChild><button type="button" className="decision-sheet-close" aria-label="Fechar"><X size={19} /></button></Dialog.Close>
             </div>
             <div className="decision-sheet-body">
@@ -126,10 +145,11 @@ export default function ValidationHub({
                 <AssistedValidationCard
                   validation={activeValidation}
                   snapshot={snapshot}
+                  hasNext={hasNext}
                   onApply={(decision) => onApplyValidation(activeValidation, decision)}
                   onResolve={() => {
                     onResolveValidation(activeValidation.id);
-                    setActive(null);
+                    finishCurrent();
                   }}
                 />
               )}
@@ -139,13 +159,14 @@ export default function ValidationHub({
                   attention={activeAttention}
                   snapshot={snapshot}
                   resolved={false}
+                  hasNext={hasNext}
                   onApply={(decision) => {
                     onApplyAttention(activeAttention, decision);
-                    setActive(null);
+                    finishCurrent();
                   }}
                   onValidate={() => {
                     onValidateAttention(activeAttention.id);
-                    setActive(null);
+                    finishCurrent();
                   }}
                   onReopen={() => onReopenAttention(activeAttention.id)}
                 />
