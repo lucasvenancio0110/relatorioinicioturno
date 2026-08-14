@@ -1,0 +1,444 @@
+/* V9 — Validation as a decision inbox.
+   One pending item = one question = one primary decision. */
+
+/* ---------- Queue ---------- */
+.v9-validation {
+  padding: 12px !important;
+}
+.v9-validation .validation-hub-head {
+  min-height: 32px;
+  margin-bottom: 8px !important;
+}
+.v9-validation .validation-hub-head h2 {
+  font-size: .92rem !important;
+  font-weight: 790 !important;
+  letter-spacing: -.025em;
+}
+.v9-validation .validation-count {
+  min-width: 34px !important;
+  height: 30px !important;
+  padding: 0 9px !important;
+  border-radius: 999px !important;
+}
+.v9-validation .validation-queue {
+  display: grid !important;
+  gap: 6px !important;
+}
+.v9-validation .validation-row {
+  min-height: 62px !important;
+  padding: 9px 10px !important;
+  display: grid !important;
+  grid-template-columns: 34px minmax(0,1fr) auto !important;
+  gap: 9px !important;
+  align-items: center !important;
+  border-radius: 11px !important;
+  box-shadow: none !important;
+  text-align: left;
+}
+.v9-validation .validation-row.confirm {
+  border: 1px solid #eee3ca !important;
+  background: #fffcf6 !important;
+}
+.v9-validation .validation-row.overlap {
+  border: 1px solid #ddd8fb !important;
+  background: #fbfaff !important;
+}
+.v9-validation .validation-row.critical {
+  border: 1px solid #f0cccc !important;
+  background: #fff8f8 !important;
+}
+.v9-validation .validation-row-icon {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 10px !important;
+}
+.v9-validation .validation-row.confirm .validation-row-icon {
+  background: #fff4dc !important;
+  color: #aa731e !important;
+}
+.v9-validation .validation-row.overlap .validation-row-icon {
+  background: #f0edff !important;
+  color: #6556e8 !important;
+}
+.v9-validation .validation-row.critical .validation-row-icon {
+  background: #fff0f0 !important;
+  color: #c3494e !important;
+}
+.v9-validation .validation-row-copy {
+  min-width: 0;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+.v9-validation .validation-row-copy strong {
+  color: #1a1e2b !important;
+  font-size: .72rem !important;
+  line-height: 1.2 !important;
+  font-weight: 800 !important;
+}
+.v9-validation .validation-row-copy em {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #788194 !important;
+  font-size: .56rem !important;
+  line-height: 1.25 !important;
+  font-style: normal !important;
+  font-weight: 610 !important;
+}
+.v9-validation .validation-row-action {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  color: #8c94a3 !important;
+}
+.v9-validation .validation-row-action small {
+  font-size: .52rem !important;
+  font-weight: 770 !important;
+}
+.v9-validation .validation-row.confirm .validation-row-action small { color: #9c6b1d !important; }
+.v9-validation .validation-row.overlap .validation-row-action small { color: #6556e8 !important; }
+.v9-validation .validation-row.critical .validation-row-action small { color: #bd4349 !important; }
+.v9-validation .validation-resolved-note { display: none !important; }
+
+/* ---------- Sheet ---------- */
+.v9-decision-sheet {
+  width: min(100%, 680px) !important;
+  max-height: min(82dvh, 720px) !important;
+  padding: 0 14px 16px !important;
+  border-radius: 22px 22px 0 0 !important;
+  background: #fff !important;
+  box-shadow: 0 -10px 36px rgba(24, 28, 40, .12) !important;
+}
+.v9-decision-sheet .decision-sheet-handle {
+  width: 38px !important;
+  height: 4px !important;
+  margin: 8px auto 5px !important;
+  border-radius: 999px !important;
+  background: #d7dbe2 !important;
+}
+.v9-decision-sheet .decision-sheet-head {
+  min-height: 54px !important;
+  padding: 5px 1px 8px !important;
+  border-bottom: 1px solid #eceef2 !important;
+}
+.v9-sheet-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.v9-sheet-title [data-radix-dialog-title] {
+  margin: 0;
+  font-size: .92rem !important;
+  font-weight: 810 !important;
+  letter-spacing: -.025em;
+}
+.v9-sheet-title > span {
+  color: #9aa1ae;
+  font-size: .54rem;
+  font-weight: 760;
+}
+.v9-decision-sheet .decision-sheet-close {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 11px !important;
+  border: 1px solid #e2e5ea !important;
+  background: #fff !important;
+  color: #667083 !important;
+}
+.v9-decision-sheet .decision-sheet-body {
+  overflow-y: auto;
+  padding: 12px 0 0 !important;
+}
+
+/* ---------- Shared decision intro ---------- */
+.v9-decision-intro {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.v9-decision-intro > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.v9-decision-intro > div > strong {
+  color: #171b28;
+  font-size: 1rem;
+  font-weight: 850;
+  letter-spacing: -.03em;
+}
+.v9-decision-intro > div > span {
+  color: #777f90;
+  font-size: .6rem;
+  font-weight: 680;
+}
+.v9-decision-intro h3,
+.v9-decision-question h3 {
+  margin: 0;
+  color: #252a37;
+  font-size: .76rem;
+  font-weight: 780;
+}
+
+/* ---------- Assisted confirmations ---------- */
+.v9-assist-card {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+.v9-assist-card .assist-head,
+.v9-assist-card > p { display: none !important; }
+.v9-assist-card .assist-controls {
+  display: grid !important;
+  gap: 9px !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+.v9-detail-field > span { display: none !important; }
+.v9-assist-card .assist-text-field input,
+.v9-assist-card .assist-time-field input {
+  min-height: 46px !important;
+  padding: 0 12px !important;
+  border: 1px solid #d8dde5 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #1b1f2c !important;
+  font-size: .7rem !important;
+  box-shadow: none !important;
+}
+.v9-assist-card .assist-text-field input:focus,
+.v9-assist-card .assist-time-field input:focus {
+  outline: none !important;
+  border-color: #aaa1f0 !important;
+  box-shadow: 0 0 0 3px rgba(95,82,220,.08) !important;
+}
+.v9-assist-card .assist-time-field > span,
+.v9-inline-setup-type > span {
+  color: #7d8595 !important;
+  font-size: .54rem !important;
+  font-weight: 720 !important;
+}
+.v9-choice-list {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 6px !important;
+}
+.v9-choice-list > button {
+  min-height: 48px !important;
+  padding: 8px 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 9px !important;
+  text-align: left !important;
+  border: 1px solid #e1e4e9 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #343a49 !important;
+  box-shadow: none !important;
+}
+.v9-choice-list > button.selected {
+  border-color: #aaa1f0 !important;
+  background: #f7f5ff !important;
+  color: #29234f !important;
+}
+.v9-choice-list > button strong {
+  font-size: .64rem !important;
+  font-weight: 740 !important;
+}
+.v9-choice-list > button small {
+  display: block;
+  margin-top: 2px;
+  color: #868e9d;
+  font-size: .52rem;
+  font-weight: 580;
+  line-height: 1.3;
+}
+.v9-radio-dot {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  border: 2px solid #c8ced8;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: inset 0 0 0 4px #fff;
+}
+.v9-choice-list > button.selected .v9-radio-dot {
+  border-color: #6556e8;
+  background: #6556e8;
+}
+.v9-choice-emoji { font-size: .86rem; line-height: 1; }
+.v9-inline-setup-type { display: grid; gap: 6px; }
+.v9-assist-card .assist-confirm,
+.v9-confirm-decision {
+  min-height: 46px !important;
+  padding: 0 16px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: #5f52dc !important;
+  color: #fff !important;
+  font-size: .64rem !important;
+  font-weight: 790 !important;
+  box-shadow: none !important;
+}
+.v9-assist-card .assist-confirm:disabled,
+.v9-confirm-decision:disabled {
+  background: #ececf2 !important;
+  color: #a7adba !important;
+}
+.v9-assist-card .assist-secondary {
+  min-height: 42px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #727b8d !important;
+  font-size: .58rem !important;
+  font-weight: 720 !important;
+}
+.v9-assist-origin {
+  margin-top: 12px !important;
+  padding-top: 9px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  border-top: 1px solid #eef0f3 !important;
+  color: #8a92a1 !important;
+  font-size: .52rem !important;
+}
+.v9-assist-origin button {
+  border: 0 !important;
+  background: transparent !important;
+  color: #6556e8 !important;
+  font-size: .52rem !important;
+  font-weight: 760 !important;
+}
+
+/* ---------- Overlap decisions ---------- */
+.v9-attention-card {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+.v9-context-list {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 13px;
+}
+.v9-context-item {
+  min-height: 42px;
+  padding: 7px 9px;
+  display: grid;
+  grid-template-columns: minmax(110px,.72fr) minmax(0,1.28fr);
+  align-items: center;
+  gap: 9px;
+  border-radius: 9px;
+  background: #f7f8fa;
+}
+.v9-context-item span {
+  color: #7a8393;
+  font-size: .54rem;
+  font-weight: 730;
+}
+.v9-context-item strong {
+  color: #303544;
+  font-size: .6rem;
+  font-weight: 700;
+}
+.v9-decision-question {
+  margin: 2px 0 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.v9-suggestion {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #f0edff;
+  color: #6556e8;
+  font-size: .48rem;
+  font-weight: 780;
+  white-space: nowrap;
+}
+.v9-overlap-choices > button > span:last-child { min-width: 0; }
+.v9-decision-footer {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: auto minmax(160px,1fr);
+  gap: 8px;
+  align-items: center;
+}
+.v9-edit-link {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0 !important;
+  background: transparent !important;
+  color: #666f81 !important;
+  font-size: .56rem !important;
+  font-weight: 710 !important;
+}
+.v9-source-line {
+  margin-top: 10px !important;
+  padding-top: 8px !important;
+  border-top: 1px solid #eef0f3 !important;
+  color: #8a92a1 !important;
+}
+.v9-source-line span { display: none !important; }
+.v9-source-line strong { font-size: .5rem !important; font-weight: 630 !important; }
+.v9-attention-editor .attention-editor-hint { margin-bottom: 9px; }
+
+/* Overlap is not an error. Red remains exclusive to real conflicts. */
+.v9-decision-sheet .attention-card.overlap,
+.v9-decision-sheet .attention-card.overlap.warning,
+.v9-decision-sheet .attention-card.overlap.critical {
+  border-color: transparent !important;
+  background: #fff !important;
+}
+
+/* ---------- Feedback ---------- */
+.v9-assist-card .assist-success,
+.v9-attention-card .decision-success-flash {
+  inset: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 12px !important;
+  background: rgba(238,248,243,.97) !important;
+  color: #147a55 !important;
+  font-size: .72rem !important;
+  font-weight: 800 !important;
+}
+
+@media (min-width: 980px) {
+  .v9-decision-sheet {
+    inset: 0 0 0 auto !important;
+    width: min(470px, 42vw) !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    padding: 10px 18px 20px !important;
+    border-radius: 18px 0 0 18px !important;
+    box-shadow: -18px 0 50px rgba(24,28,40,.12) !important;
+  }
+  .v9-decision-sheet .decision-sheet-handle { display: none !important; }
+  .v9-decision-sheet .decision-sheet-head { min-height: 58px !important; }
+  .v9-decision-sheet .decision-sheet-body { padding-top: 16px !important; }
+  .v9-validation .validation-row:hover {
+    border-color: #d7d2f4 !important;
+    background: #faf9ff !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .v9-validation { padding: 10px !important; }
+  .v9-validation .validation-row { min-height: 60px !important; }
+  .v9-validation .validation-row-action small { display: none !important; }
+  .v9-decision-sheet { padding-inline: 14px !important; }
+  .v9-decision-intro > div { align-items: center; }
+  .v9-context-item { grid-template-columns: 112px minmax(0,1fr); }
+  .v9-decision-footer { grid-template-columns: 1fr !important; }
+  .v9-confirm-decision { order: -1; width: 100%; }
+  .v9-edit-link { min-height: 38px; }
+}

@@ -28,7 +28,7 @@ describe('V4 UI smoke', () => {
     const validations = buildAssistedValidations(snapshot);
     const html = renderToStaticMarkup(hub({ snapshot, validations, issues: [], attentions: [], resolvedCount: 0, onApplyValidation: noop, onResolveValidation: noop, onApplyAttention: noop, onValidateAttention: noop, onReopenAttention: noop }));
     expect(validations.some((item) => item.tnl === 'TNL 069')).toBe(true);
-    expect(html).toContain('CONFIRMAR');
+    expect(html).toContain('Confirmar');
     expect(html).toContain('TNL 069');
   });
 });

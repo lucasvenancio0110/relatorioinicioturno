@@ -5,14 +5,15 @@ import type { AssistedValidationDecision } from '../engine/assistedValidation';
 interface Props {
   validation: AssistedValidation;
   snapshot: SectorSnapshot;
+  hasNext?: boolean;
   onApply: (decision: AssistedValidationDecision) => void;
   onResolve: () => void;
 }
 
 const setupTypes: Array<{ value: Exclude<Severity, null>; label: string; short: string }> = [
-  { value: 'red', label: '🔴 Ferramentas + programa', short: '🔴' },
-  { value: 'green', label: '🟢 Programa', short: '🟢' },
-  { value: 'blue', label: '🔵 Variável / comprimento', short: '🔵' },
+  { value: 'red', label: 'Ferramentas + programa', short: '🔴' },
+  { value: 'green', label: 'Programa', short: '🟢' },
+  { value: 'blue', label: 'Variável / comprimento', short: '🔵' },
 ];
 
 const absenceTypes: Array<{ value: AbsenceRecord['type']; label: string }> = [
@@ -23,17 +24,29 @@ const absenceTypes: Array<{ value: AbsenceRecord['type']; label: string }> = [
   { value: 'leave', label: 'Afastado' },
 ];
 
-export default function AssistedValidationCard({ validation, snapshot, onApply, onResolve }: Props) {
+function questionFor(validation: AssistedValidation): string {
+  if (validation.kind === 'maintenance-detail' || validation.kind === 'adjustment-detail' || validation.kind === 'development-detail') return 'Qual é o detalhe?';
+  if (validation.kind === 'setup-severity') return 'Qual é o tipo do setup?';
+  if (validation.kind === 'setup-state') return 'Qual é a situação da máquina?';
+  if (validation.kind === 'setup-time') return 'Qual é o horário previsto?';
+  if (validation.kind === 'absence-type') return 'Qual é o tipo de ausência?';
+  if (validation.kind === 'na-with-data') return 'Os dados informados estão corretos?';
+  return 'Confirme a informação';
+}
+
+export default function AssistedValidationCard({ validation, snapshot, hasNext = false, onApply, onResolve }: Props) {
   const [selectedSeverity, setSelectedSeverity] = useState<Exclude<Severity, null> | null>(null);
   const [placement, setPlacement] = useState<'active' | 'scheduled-current' | 'scheduled-next' | null>(null);
   const [time, setTime] = useState('');
   const [description, setDescription] = useState('');
+  const [absenceType, setAbsenceType] = useState<AbsenceRecord['type'] | null>(null);
   const [copied, setCopied] = useState(false);
   const [resolving, setResolving] = useState(false);
 
   const source = useMemo(() => snapshot.messages.find((message) => message.id === validation.sourceId), [snapshot.messages, validation.sourceId]);
   const needsSeverity = validation.missingFields.includes('Tipo/cor do setup');
   const needsTime = validation.missingFields.includes('Horário');
+  const finalLabel = (base: string) => hasNext ? `${base} e próxima` : base;
 
   const finish = (decision?: AssistedValidationDecision) => {
     if (resolving) return;
@@ -41,7 +54,7 @@ export default function AssistedValidationCard({ validation, snapshot, onApply, 
     window.setTimeout(() => {
       if (decision) onApply(decision);
       onResolve();
-    }, 340);
+    }, 180);
   };
 
   const copyQuestion = async () => {
@@ -53,17 +66,18 @@ export default function AssistedValidationCard({ validation, snapshot, onApply, 
 
   const renderSetupSeverity = () => (
     <div className="assist-controls">
-      <div className="assist-choice-label">Tipo do setup</div>
-      <div className="setup-type-grid">
+      <div className="v9-choice-list setup-type-grid">
         {setupTypes.map((type) => (
           <button
             type="button"
             key={type.value}
             className={selectedSeverity === type.value ? 'selected' : ''}
             onClick={() => setSelectedSeverity(type.value)}
-            title={type.label}
+            aria-pressed={selectedSeverity === type.value}
           >
-            <span>{type.short}</span><small>{type.label.replace(/^.\s*/, '')}</small>
+            <span className="v9-radio-dot" />
+            <span className="v9-choice-emoji">{type.short}</span>
+            <strong>{type.label}</strong>
           </button>
         ))}
       </div>
@@ -73,12 +87,9 @@ export default function AssistedValidationCard({ validation, snapshot, onApply, 
           <input type="time" value={time} onChange={(event) => setTime(event.target.value)} />
         </label>
       )}
-      <button
-        className="assist-confirm"
-        type="button"
-        disabled={!selectedSeverity}
-        onClick={() => finish({ severity: selectedSeverity || undefined, time: time || undefined })}
-      >Confirmar informação</button>
+      <button className="assist-confirm" type="button" disabled={!selectedSeverity} onClick={() => finish({ severity: selectedSeverity || undefined, time: time || undefined })}>
+        {finalLabel('Confirmar')}
+      </button>
     </div>
   );
 
@@ -86,101 +97,92 @@ export default function AssistedValidationCard({ validation, snapshot, onApply, 
     const canApply = Boolean(placement) && (!needsSeverity || Boolean(selectedSeverity));
     return (
       <div className="assist-controls">
-        <div className="assist-choice-label">Situação da máquina</div>
-        <div className="setup-placement-grid">
-          <button type="button" className={placement === 'active' ? 'selected' : ''} onClick={() => setPlacement('active')}>Em setup agora</button>
-          <button type="button" className={placement === 'scheduled-current' ? 'selected' : ''} onClick={() => setPlacement('scheduled-current')}>Vai entrar em setup</button>
-          <button type="button" className={placement === 'scheduled-next' ? 'selected' : ''} onClick={() => setPlacement('scheduled-next')}>Setup {snapshot.nextShift}ºT</button>
+        <div className="v9-choice-list setup-placement-grid">
+          <button type="button" className={placement === 'active' ? 'selected' : ''} onClick={() => setPlacement('active')} aria-pressed={placement === 'active'}><span className="v9-radio-dot"/><strong>Em setup agora</strong></button>
+          <button type="button" className={placement === 'scheduled-current' ? 'selected' : ''} onClick={() => setPlacement('scheduled-current')} aria-pressed={placement === 'scheduled-current'}><span className="v9-radio-dot"/><strong>Vai entrar em setup</strong></button>
+          <button type="button" className={placement === 'scheduled-next' ? 'selected' : ''} onClick={() => setPlacement('scheduled-next')} aria-pressed={placement === 'scheduled-next'}><span className="v9-radio-dot"/><strong>Setup {snapshot.nextShift}ºT</strong></button>
         </div>
         {placement === 'scheduled-current' && (
-          <label className="assist-time-field">
-            <span>Horário, se souber</span>
-            <input type="time" value={time} onChange={(event) => setTime(event.target.value)} />
-          </label>
+          <label className="assist-time-field"><span>Horário, se souber</span><input type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label>
         )}
         {needsSeverity && renderSetupSeverityInline(selectedSeverity, setSelectedSeverity)}
-        <button
-          className="assist-confirm"
-          type="button"
-          disabled={!canApply}
-          onClick={() => finish({ setupPlacement: placement || undefined, severity: selectedSeverity || undefined, time: time || undefined })}
-        >Aplicar no consolidado</button>
+        <button className="assist-confirm" type="button" disabled={!canApply} onClick={() => finish({ setupPlacement: placement || undefined, severity: selectedSeverity || undefined, time: time || undefined })}>
+          {finalLabel('Confirmar')}
+        </button>
       </div>
     );
   };
 
   const renderDetail = () => (
     <div className="assist-controls">
-      <label className="assist-text-field">
-        <span>Completar informação</span>
+      <label className="assist-text-field v9-detail-field">
         <input
+          autoFocus
           type="text"
           value={description}
           placeholder={validation.kind === 'adjustment-detail' ? 'Ex.: Quebra de ferramenta' : validation.kind === 'maintenance-detail' ? 'Ex.: Falha no empurrador' : 'Ex.: Programação'}
           onChange={(event) => setDescription(event.target.value)}
+          onKeyDown={(event) => { if (event.key === 'Enter' && description.trim()) finish({ description }); }}
         />
       </label>
-      <button className="assist-confirm" type="button" disabled={!description.trim()} onClick={() => finish({ description })}>Salvar detalhe</button>
+      <button className="assist-confirm" type="button" disabled={!description.trim()} onClick={() => finish({ description })}>{finalLabel('Salvar')}</button>
     </div>
   );
 
   const renderAbsence = () => (
     <div className="assist-controls">
-      <div className="absence-choice-grid">
+      <div className="v9-choice-list absence-choice-grid">
         {absenceTypes.map((type) => (
-          <button key={type.value} type="button" onClick={() => finish({ absenceType: type.value })}>{type.label}</button>
+          <button key={type.value} type="button" className={absenceType === type.value ? 'selected' : ''} onClick={() => setAbsenceType(type.value)} aria-pressed={absenceType === type.value}>
+            <span className="v9-radio-dot"/><strong>{type.label}</strong>
+          </button>
         ))}
       </div>
+      <button className="assist-confirm" type="button" disabled={!absenceType} onClick={() => finish({ absenceType: absenceType || undefined })}>{finalLabel('Confirmar')}</button>
     </div>
   );
 
   return (
-    <article className={`assist-card ${validation.severity} ${resolving ? 'resolving' : ''}`}>
-      {resolving && <div className="assist-success"><span>✓</span> Resolvido</div>}
-      <div className="assist-head">
-        <div>
-          <span>CONFIRMAR</span>
-          <strong>{validation.title}</strong>
-        </div>
-        <small>{validation.interpretedAs}</small>
-      </div>
+    <article className={`assist-card v9-assist-card ${validation.severity} ${resolving ? 'resolving' : ''}`}>
+      {resolving && <div className="assist-success" role="status"><span>✓</span> Resolvido</div>}
 
-      <p>{validation.message}</p>
-      <div className="assist-origin">
-        <span>{source?.sender || 'Preparador não identificado'}{source?.line ? ` · Linha ${source.line}` : ''}</span>
-        <button type="button" onClick={copyQuestion}>{copied ? 'Copiada ✓' : 'Copiar pergunta'}</button>
+      <div className="v9-decision-intro">
+        <div><strong>{validation.tnl || validation.title}</strong><span>{validation.interpretedAs}</span></div>
+        <h3>{questionFor(validation)}</h3>
       </div>
 
       {validation.kind === 'setup-severity' && renderSetupSeverity()}
       {validation.kind === 'setup-state' && renderSetupState()}
       {validation.kind === 'setup-time' && (
         <div className="assist-controls assist-time-actions">
-          <label className="assist-time-field"><span>Horário previsto</span><input type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label>
-          <button className="assist-confirm" type="button" disabled={!time} onClick={() => finish({ time })}>Salvar horário</button>
-          <button className="assist-secondary" type="button" onClick={() => finish()}>Sem horário definido</button>
+          <label className="assist-time-field"><span>Horário</span><input autoFocus type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label>
+          <button className="assist-confirm" type="button" disabled={!time} onClick={() => finish({ time })}>{finalLabel('Salvar')}</button>
+          <button className="assist-secondary" type="button" onClick={() => finish()}>{finalLabel('Sem horário')}</button>
         </div>
       )}
       {(validation.kind === 'maintenance-detail' || validation.kind === 'adjustment-detail' || validation.kind === 'development-detail') && renderDetail()}
       {validation.kind === 'absence-type' && renderAbsence()}
-      {validation.kind === 'na-with-data' && <button className="assist-confirm standalone" type="button" onClick={() => finish()}>Confirmar dados reais</button>}
+      {validation.kind === 'na-with-data' && <button className="assist-confirm standalone" type="button" onClick={() => finish()}>{finalLabel('Confirmar')}</button>}
+
+      <div className="assist-origin v9-assist-origin">
+        <span>{source?.sender || 'Preparador não identificado'}{source?.line ? ` · Linha ${source.line}` : ''}</span>
+        <button type="button" onClick={copyQuestion}>{copied ? 'Copiada ✓' : 'Copiar pergunta'}</button>
+      </div>
     </article>
   );
 }
 
-function renderSetupSeverityInline(
-  selected: Exclude<Severity, null> | null,
-  onSelect: (severity: Exclude<Severity, null>) => void,
-) {
+function renderSetupSeverityInline(selected: Exclude<Severity, null> | null, onSelect: (severity: Exclude<Severity, null>) => void) {
   return (
-    <>
-      <div className="assist-choice-label">Tipo do setup</div>
-      <div className="setup-type-grid compact">
+    <div className="v9-inline-setup-type">
+      <span>Tipo do setup</span>
+      <div className="v9-choice-list setup-type-grid compact">
         {setupTypes.map((type) => (
-          <button type="button" key={type.value} className={selected === type.value ? 'selected' : ''} onClick={() => onSelect(type.value)}>
-            <span>{type.short}</span><small>{type.label.replace(/^.\s*/, '')}</small>
+          <button type="button" key={type.value} className={selected === type.value ? 'selected' : ''} onClick={() => onSelect(type.value)} aria-pressed={selected === type.value}>
+            <span className="v9-radio-dot"/><span className="v9-choice-emoji">{type.short}</span><strong>{type.label}</strong>
           </button>
         ))}
       </div>
-    </>
+    </div>
   );
 }
