@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import factoryFloorCss from '../src/styles/factory-floor.css?raw';
+import factoryFloorCss from '../src/styles/factory-floor.css?inline';
 import mainSource from '../src/main.tsx?raw';
 import validationHubSource from '../src/app/ValidationHub.tsx?raw';
 
