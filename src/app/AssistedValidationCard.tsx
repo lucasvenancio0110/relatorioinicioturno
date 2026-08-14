@@ -20,6 +20,7 @@ const absenceTypes: Array<{ value: AbsenceRecord['type']; label: string }> = [
   { value: 'absence', label: 'Falta' },
   { value: 'certificate', label: 'Atestado' },
   { value: 'vacation', label: 'Férias' },
+  { value: 'leave', label: 'Afastado' },
 ];
 
 export default function AssistedValidationCard({ validation, snapshot, onApply, onResolve }: Props) {
