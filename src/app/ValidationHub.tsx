@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
 import { Dialog } from 'radix-ui';
-import { AlertTriangle, CheckCircle2, CircleHelp, Layers3, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, CircleHelp, Layers3, X } from 'lucide-react';
 import type { AssistedValidation, AuditIssue, OperationalAttention, SectorSnapshot } from '../domain/types';
 import type { AssistedValidationDecision } from '../engine/assistedValidation';
 import type { AttentionDecision } from '../engine/attentionResolution';
@@ -66,77 +65,51 @@ export default function ValidationHub({
   );
 
   return (
-    <section className="validation-hub" aria-label="Validação do setor">
+    <section className="validation-hub v8-validation" aria-label="Validação do setor">
       <div className="validation-hub-head">
-        <div>
-          <span className="section-kicker">VALIDAÇÃO</span>
-          <h2>O que precisa de você</h2>
-        </div>
+        <h2>Validação</h2>
         <div className={pendingCount ? 'validation-count pending' : 'validation-count clear'}>
-          {pendingCount ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+          {pendingCount ? <AlertTriangle size={15} /> : <CheckCircle2 size={15} />}
           <strong>{pendingCount}</strong>
         </div>
       </div>
 
       {pendingCount === 0 ? (
         <div className="validation-clear-state">
-          <CheckCircle2 size={18} />
-          <div><strong>Sem pendências</strong><span>O consolidado está pronto para revisão.</span></div>
-          {resolvedCount > 0 && <small>{resolvedCount} decisão(ões) já resolvida(s)</small>}
+          <CheckCircle2 size={17} />
+          <strong>Sem pendências</strong>
+          {resolvedCount > 0 && <small>{resolvedCount} resolvida(s)</small>}
         </div>
       ) : (
         <div className="validation-queue">
-          <AnimatePresence initial={false} mode="popLayout">
-            {issues.map((issue) => (
-              <motion.button
-                layout
-                exit={{ opacity: 0, scale: 0.98 }}
-                key={`issue-${issue.id}`}
-                type="button"
-                className="validation-row critical"
-                onClick={() => setActive({ kind: 'issue', id: issue.id })}
-              >
-                <span className="validation-row-icon"><AlertTriangle size={17} /></span>
-                <span className="validation-row-copy"><small>CONFLITO</small><strong>{issue.tnl || 'Revisão necessária'}</strong><em>{issue.message}</em></span>
-                <span className="validation-row-action">Abrir</span>
-              </motion.button>
-            ))}
+          {issues.map((issue) => (
+            <button key={`issue-${issue.id}`} type="button" className="validation-row critical" onClick={() => setActive({ kind: 'issue', id: issue.id })}>
+              <span className="validation-row-icon"><AlertTriangle size={17} /></span>
+              <span className="validation-row-copy"><small>CONFLITO</small><strong>{issue.tnl || 'Revisão necessária'}</strong><em>{issue.message}</em></span>
+              <span className="validation-row-action" aria-hidden="true"><ChevronRight size={17}/></span>
+            </button>
+          ))}
 
-            {validations.map((validation) => (
-              <motion.button
-                layout
-                exit={{ opacity: 0, scale: 0.98 }}
-                key={`validation-${validation.id}`}
-                type="button"
-                className="validation-row confirm"
-                onClick={() => setActive({ kind: 'validation', id: validation.id })}
-              >
-                <span className="validation-row-icon"><CircleHelp size={17} /></span>
-                <span className="validation-row-copy"><small>CONFIRMAR</small><strong>{shortValidationMessage(validation)}</strong><em>{validation.message}</em></span>
-                <span className="validation-row-action">Resolver</span>
-              </motion.button>
-            ))}
+          {validations.map((validation) => (
+            <button key={`validation-${validation.id}`} type="button" className="validation-row confirm" onClick={() => setActive({ kind: 'validation', id: validation.id })}>
+              <span className="validation-row-icon"><CircleHelp size={17} /></span>
+              <span className="validation-row-copy"><small>CONFIRMAR</small><strong>{shortValidationMessage(validation)}</strong><em>{validation.message}</em></span>
+              <span className="validation-row-action" aria-hidden="true"><ChevronRight size={17}/></span>
+            </button>
+          ))}
 
-            {attentions.map((attention) => (
-              <motion.button
-                layout
-                exit={{ opacity: 0, scale: 0.98 }}
-                key={`attention-${attention.id}`}
-                type="button"
-                className="validation-row overlap"
-                onClick={() => setActive({ kind: 'attention', id: attention.id })}
-              >
-                <span className="validation-row-icon"><Layers3 size={17} /></span>
-                <span className="validation-row-copy"><small>SOBREPOSIÇÃO</small><strong>{attention.tnl}</strong><em>{attentionSummary(attention)}</em></span>
-                <span className="validation-row-action">Decidir</span>
-              </motion.button>
-            ))}
-          </AnimatePresence>
+          {attentions.map((attention) => (
+            <button key={`attention-${attention.id}`} type="button" className="validation-row overlap" onClick={() => setActive({ kind: 'attention', id: attention.id })}>
+              <span className="validation-row-icon"><Layers3 size={17} /></span>
+              <span className="validation-row-copy"><small>SOBREPOSIÇÃO</small><strong>{attention.tnl}</strong><em>{attentionSummary(attention)}</em></span>
+              <span className="validation-row-action" aria-hidden="true"><ChevronRight size={17}/></span>
+            </button>
+          ))}
         </div>
       )}
 
       {resolvedCount > 0 && pendingCount > 0 && (
-        <div className="validation-resolved-note"><CheckCircle2 size={14} /> {resolvedCount} resolvida(s) nesta análise</div>
+        <div className="validation-resolved-note"><CheckCircle2 size={13} /> {resolvedCount} resolvida(s)</div>
       )}
 
       <Dialog.Root open={Boolean(active)} onOpenChange={(open) => { if (!open) setActive(null); }}>
@@ -145,7 +118,7 @@ export default function ValidationHub({
           <Dialog.Content className="decision-sheet" aria-describedby={undefined}>
             <div className="decision-sheet-handle" />
             <div className="decision-sheet-head">
-              <div><span>DECISÃO OPERACIONAL</span><Dialog.Title>Resolver pendência</Dialog.Title></div>
+              <Dialog.Title>Resolver</Dialog.Title>
               <Dialog.Close asChild><button type="button" className="decision-sheet-close" aria-label="Fechar"><X size={19} /></button></Dialog.Close>
             </div>
             <div className="decision-sheet-body">
