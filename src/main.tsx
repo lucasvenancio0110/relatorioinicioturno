@@ -11,6 +11,7 @@ import './styles/clean-cockpit.css';
 import './styles/assisted-validation.css';
 import './styles/v4-cockpit.css';
 import './styles/v5-workspace.css';
+import './styles/factory-floor.css';
 
 const preventGestureZoom = (event: Event) => event.preventDefault();
 document.addEventListener('gesturestart', preventGestureZoom, { passive: false });
