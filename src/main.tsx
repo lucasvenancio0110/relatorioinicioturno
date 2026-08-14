@@ -13,6 +13,7 @@ import './styles/v4-cockpit.css';
 import './styles/v5-workspace.css';
 import './styles/v7-clean.css';
 import './styles/v8-ux.css';
+import './styles/v9-validation.css';
 
 const preventGestureZoom = (event: Event) => event.preventDefault();
 document.addEventListener('gesturestart', preventGestureZoom, { passive: false });
