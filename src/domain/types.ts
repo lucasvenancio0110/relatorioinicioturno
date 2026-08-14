@@ -36,12 +36,13 @@ export interface SetupRecord extends MachineRecord {
 
 export interface AbsenceRecord {
   name: string;
-  type: 'delay' | 'vacation' | 'absence' | 'certificate';
+  type: 'delay' | 'vacation' | 'absence' | 'certificate' | 'leave';
   sourceId?: string;
 }
 
 export interface ManualCounters {
   checkpoint: number;
+  /** @deprecated kept only for backwards-compatible localStorage payloads */
   cqMachining: number;
   cqClosing: number;
   cqReinspection: number;
